@@ -1,20 +1,30 @@
 const { executeQuery } = require("../../../common/sqlConnectionManager");
+const { getFilters, getRecipies, getReviewedStatus } = require("../responses");
+const { buildWhereClause } = require("../helpers/sqlHelpers");
 
 const appService = {
   getRecipies: async (req) => {
-    const pageNumber = parseInt(req.query.pageNumber || 1); // Default to page 1 if not provided
-    const rowsPerPage = parseInt(req.query.rowsPerPage || 10); // Default to 10 rows per page if not provided
+    const pageNumber = parseInt(req.body.pageNumber || 1);
+    const rowsPerPage = parseInt(req.body.rowsPerPage || 10);
 
     const offset = (pageNumber - 1) * rowsPerPage;
 
-    // Get the start and end dates of the current month
     const startDate = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
     const endDate = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0);
-    const reviewedStatus = req.query.reviewedStatus === "All" ? '' : ` AND REVIEWED='${req.query.reviewedStatus}' `
+    const reviewedStatus =
+      req.body.reviewedStatus === "All"
+        ? ""
+        : ` AND REVIEWED='${req.body.reviewedStatus}' `;
+
+    const filterConditions = req.body.filters
+      ? buildWhereClause(req.body.filters)
+      : "";
+
     let query = `SELECT * 
       FROM [dbo].[T_NA_PRODRATE_PLANNINGRATE_PERSONALCARE]
-      WHERE  SNAPSHOT_DATE BETWEEN @startDate AND @endDate
+      WHERE SNAPSHOT_DATE BETWEEN @startDate AND @endDate
       ?reviewedStatus?
+      ?filterConditions?
       ORDER BY SNAPSHOT_DATE desc
       OFFSET @offset ROWS
       FETCH NEXT @rowsPerPage ROWS ONLY;`;
@@ -25,14 +35,17 @@ const appService = {
       startDate: startDate.toISOString(),
       endDate: endDate.toISOString(),
     };
-    query = query.replace('?reviewedStatus?', reviewedStatus)
-    let rows = await executeQuery(query, params);
+
+    query = query.replace("?reviewedStatus?", reviewedStatus);
+    query = query.replace("?filterConditions?", filterConditions);
+    console.log("Query:", query);
+    let rows = getRecipies();
     let rowsCount = rows?.length;
-    response = { rows, rowsCount }
+    response = { rows, rowsCount };
     return response;
   },
   getCategories: async () => {
-    response = ["Personal Care"]
+    response = ["Personal Care"];
     return response;
   },
   getFilters: async (req) => {
@@ -48,7 +61,7 @@ const appService = {
       startDate: startDate.toISOString(),
       endDate: endDate.toISOString(),
     };
-    let response = await executeQuery(query, params);
+    let response = getFilters();
     return response;
   },
   getReviewedStatus: async (req) => {
@@ -62,12 +75,9 @@ const appService = {
       startDate: startDate.toISOString(),
       endDate: endDate.toISOString(),
     };
-    let response = await executeQuery(query, params);
+    let response = getReviewedStatus();
     return response;
   },
 };
-
-
-
 
 module.exports = appService;
