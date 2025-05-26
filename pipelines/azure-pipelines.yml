@@ -1,0 +1,41 @@
+---
+###################################################################################
+# Pipeline configured to build and deploy
+    # Trigger Condition: Will be auto triggered when any code pushed to master branch
+    # Name of build: It will be <date when pipeline ran>_<revision for the build>
+    # It is pointing to coe-master-template repository.
+###################################################################################
+trigger:
+  branches:
+    include:
+      - main
+      - master
+
+name: $(date:yyyyMMdd)$(rev:.r)
+
+variables:
+  - template: variables/common-variables.yml
+
+resources:
+  repositories:
+    - repository: coe-master-template
+      type: git
+      name: Amplifi/coe-master-template
+      ref: refs/tags/v2.7.3
+      endpoint: pipeline-template
+
+stages:
+- template: build-deploy-flow.yml@coe-master-template
+  parameters:
+    template: 'azurewebapp'
+    application_stack: 'nodejs'
+    app_type: 'windows'
+    environment_objects:
+#      - environmentName: 'dev'
+#        service_connection_name: ''
+      - environmentName: 'qa'
+#        depends: "dev"
+        service_connection_name: 'azure-quality-sub-prodrate-dna-q-1'
+#      - environmentName: 'prod'
+#        depends: "qa"
+#        service_connection_name: ''

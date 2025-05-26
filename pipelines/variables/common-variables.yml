@@ -1,0 +1,28 @@
+---
+###################################################################################
+# Common variables which are used for build and deployment pipeline
+    # project_name: The SonarQube project name, i.e. sonar.projectName
+    # project_key: The SonarQube project unique key, i.e. sonar.projectKey
+    # repositorylink: Repository Link for the wiki to be cloned e.g dev.azure.com/richardfennell/Git%20project/_git/Git-project.wiki. See documentation for more details https://github.com/rfennell/AzurePipelines/wiki/WIKI-Updater-Tasks
+    # releasename: The name of the release where wiki page is going to be updated
+    # cli_sources: if a specific folder need to be scanned
+    # cmdb_ci: The ServiceNow configuration item for the change request
+    # node_version: Specify the Node version you require for your build. You may mention a specific version, or a series like '10.x'    
+###################################################################################
+variables:
+  - name: project_name
+    value: 'Production Rate Prediction NodeJS_ProdRate'
+  - name: project_key
+    value: 'Production_Rate_Prediction_NodeJS_ProdRate'
+  - name: repositorylink
+    value: 'https://KC-DataAnalytics@dev.azure.com/KC-DataAnalytics/Production%20Rate%20Prediction/_git/Production-Rate-Prediction.wiki'
+  - name: cli_sources
+    value: 'apps'
+  - name: extra_properties
+    value: '' 
+  - name: cmdb_ci
+    value: 'bc224ffe9388a210f661f42e1dba10f6'
+  - name: releasename
+    value: 'Releases/NodeJS_ProdRate'
+  - name: node_version
+    value: '20.x'

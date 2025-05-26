@@ -1,0 +1,25 @@
+---
+###################################################################################
+# PROD specific variables which are used for build and deployment pipeline
+    # webappname: Name of the WebApp in Azure
+    # startupcommand: Command to start the webapp if any (this is applicable when the app type is linux, else this variable can be ignored) Even when it's Linux/ Windows you may skip mentioning the variable and it's value, as in most cases these configartaions are present in the platform itself.
+    # packagelocation: Artifact location where build package will be published. This should not be cnhanged, as the artifact is generate in below pattern.
+    # runtimestack: Linux runtime stack (this is applicable when the app type is linux, else this variable can be ignored) Even when it's Linux/ Windows you may skip mentioning the variable and it's value, as in most cases these configartaions are present in the platform itself.
+    # slot_name: Each app service is having mutiple stagging slots, mostly for NON-PROD enviroments the traffic is routed through the default slot "production". You may leave this blank if your aren't sure about the slot. This mainly helps in deploying to Stagging Slot to "PRODUCTION" enabling 'ZERO-DOWNTIME' Deployment.
+    # rg_name: Specify the resource group name in Azure, where the webapp is hosted.
+###################################################################################
+
+variables:
+  - name : webappname
+    value: '#{webappname}#'
+  - name: startupcommand
+    value: '#{startupcommand}#'
+  - name: packagelocation
+    value: '$(Pipeline.Workspace)/drop/*.zip'
+  - name: slot_name
+    value: 'production'  
+  - name: rg_name
+    value: '#{rg_name}#'  
+  - name: runtimestack
+    value: '#{runtimestack}#'      
+  
