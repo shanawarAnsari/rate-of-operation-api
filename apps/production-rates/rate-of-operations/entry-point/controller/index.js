@@ -3,11 +3,7 @@ const appService = require("../../doamin");
 const rate_of_opeartions_controller = {
   getFilters: async (req, res, next) => {
     try {
-      let responseDto = await appService.getFilters(
-        req,
-        res,
-        next
-      );
+      let responseDto = await appService.getFilters(req, res, next);
       res.status(200).json(responseDto);
     } catch (err) {
       next(err);
@@ -15,11 +11,7 @@ const rate_of_opeartions_controller = {
   },
   getRateOfOperations: async (req, res, next) => {
     try {
-      let responseDto = await appService.getRecipies(
-        req,
-        res,
-        next
-      );
+      let responseDto = await appService.getRecipies(req, res, next);
       res.status(200).json(responseDto);
     } catch (err) {
       next(err);
@@ -27,11 +19,7 @@ const rate_of_opeartions_controller = {
   },
   getCategories: async (req, res, next) => {
     try {
-      let responseDto = await appService.getCategories(
-        req,
-        res,
-        next
-      );
+      let responseDto = await appService.getCategories(req, res, next);
       res.status(200).json(responseDto);
     } catch (err) {
       next(err);
@@ -39,15 +27,19 @@ const rate_of_opeartions_controller = {
   },
   getReviewedStatus: async (req, res, next) => {
     try {
-      let responseDto = await appService.getReviewedStatus(
-        req,
-        res,
-        next
-      );
+      let responseDto = await appService.getReviewedStatus(req, res, next);
       res.status(200).json(responseDto);
     } catch (err) {
       next(err);
     }
   },
-}
+  searchRecipies: async (req, res, next) => {
+    try {
+      let responseDto = await appService.searchRecipies(req, res, next);
+      res.status(200).json(responseDto);
+    } catch (err) {
+      next(err);
+    }
+  },
+};
 module.exports = rate_of_opeartions_controller;
