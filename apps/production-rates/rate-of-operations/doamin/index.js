@@ -77,8 +77,7 @@ const appService = {
     };
     let response = getReviewedStatus();
     return response;
-  },
-  searchRecipies: async (req) => {
+  },  searchRecipies: async (req) => {
     if (!req.body.searchText || req.body.searchText.trim() === "") {
       return { rows: [], rowsCount: 0 };
     }
@@ -89,6 +88,17 @@ const appService = {
     const offset = (pageNumber - 1) * rowsPerPage;
     const startDate = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
     const endDate = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0);
+    
+    // Handle reviewedStatus similar to getRecipies
+    const reviewedStatus =
+      req.body.reviewedStatus === "All"
+        ? ""
+        : ` AND REVIEWED='${req.body.reviewedStatus}' `;
+
+    // Handle filters similar to getRecipies
+    const filterConditions = req.body.filters
+      ? buildWhereClause(req.body.filters)
+      : "";
 
     // Create the SQL search condition for all string columns
     const searchCondition = `
@@ -120,24 +130,26 @@ const appService = {
     `;
 
     // Query to get the filtered rows with pagination
-    const query = `
+    let query = `
       SELECT *
       FROM [dbo].[T_NA_PRODRATE_PLANNINGRATE_PERSONALCARE]
-      WHERE 
-        SNAPSHOT_DATE BETWEEN @startDate AND @endDate AND
-        (${searchCondition})
+      WHERE SNAPSHOT_DATE BETWEEN @startDate AND @endDate
+      AND (${searchCondition})
+      ?reviewedStatus?
+      ?filterConditions?
       ORDER BY SNAPSHOT_DATE DESC
       OFFSET @offset ROWS
       FETCH NEXT @rowsPerPage ROWS ONLY;
     `;
 
     // Query to get the total count of matching rows
-    const countQuery = `
+    let countQuery = `
       SELECT COUNT(*) AS totalCount
       FROM [dbo].[T_NA_PRODRATE_PLANNINGRATE_PERSONALCARE]
-      WHERE 
-        SNAPSHOT_DATE BETWEEN @startDate AND @endDate AND
-        (${searchCondition})
+      WHERE SNAPSHOT_DATE BETWEEN @startDate AND @endDate
+      AND (${searchCondition})
+      ?reviewedStatus?
+      ?filterConditions?
     `;
 
     const params = {
@@ -148,24 +160,63 @@ const appService = {
       searchPattern: `%${searchText}%`,
     };
 
+    // Apply template replacements just like in getRecipies
+    query = query.replace("?reviewedStatus?", reviewedStatus);
+    query = query.replace("?filterConditions?", filterConditions);
+    countQuery = countQuery.replace("?reviewedStatus?", reviewedStatus);
+    countQuery = countQuery.replace("?filterConditions?", filterConditions);
+
     try {
       console.log("Search Query:", query);
       // Execute the queries
+      const rows = await executeQuery(query, params);
+      const countResult = await executeQuery(countQuery, params);
+      const rowsCount = countResult && countResult[0] ? countResult[0].totalCount : 0;
 
-      console.warn("Falling back to mock data for testing");
-      const mockResults = getRecipies().rows.filter((row) =>
-        Object.entries(row).some(
-          ([key, value]) =>
-            value &&
-            typeof value === "string" &&
-            value.toLowerCase().includes(searchText.toLowerCase())
-        )
-      );
-      const paginatedMockResults = mockResults.slice(offset, offset + rowsPerPage);
-      return {
-        rows: paginatedMockResults,
-        rowsCount: mockResults.length,
-      };
+      // If database query fails, fall back to mock data for testing
+      if (!rows) {
+        console.warn("Falling back to mock data for testing");
+        // Get mock data
+        const allMockResults = getRecipies();
+        
+        // Filter by search text
+        let mockResults = allMockResults.filter((row) =>
+          Object.entries(row).some(
+            ([key, value]) =>
+              value &&
+              typeof value === "string" &&
+              value.toLowerCase().includes(searchText.toLowerCase())
+          )
+        );
+        
+        // Apply reviewedStatus filter if not "All"
+        if (req.body.reviewedStatus !== "All") {
+          mockResults = mockResults.filter(row => row.REVIEWED === req.body.reviewedStatus);
+        }
+        
+        // Apply other filters
+        if (req.body.filters) {
+          mockResults = mockResults.filter(row => {
+            let keep = true;
+            Object.entries(req.body.filters).forEach(([key, values]) => {
+              if (values && values.length > 0 && row[key]) {
+                if (!values.includes(row[key])) {
+                  keep = false;
+                }
+              }
+            });
+            return keep;
+          });
+        }
+        
+        const paginatedMockResults = mockResults.slice(offset, offset + rowsPerPage);
+        return {
+          rows: paginatedMockResults,
+          rowsCount: mockResults.length,
+        };
+      }
+
+      return { rows, rowsCount };
     } catch (error) {
       console.error("Error executing search query:", error);
       throw error;
