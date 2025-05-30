@@ -41,5 +41,35 @@ const rate_of_opeartions_controller = {
       next(err);
     }
   },
+  updateRecipies: async (req, res, next) => {
+    try {
+      let responseDto = await appService.updateRecipies(req, res, next);
+      res.status(200).json(responseDto);
+    } catch (err) {
+      next(err);
+    }
+  },
+  downloadRecipies: async (req, res, next) => {
+    try {
+      let responseDto = await appService.downloadRecipies(req, res, next);
+      // Set appropriate headers based on file type
+      const fileType = req.body.fileType || "xlsx";
+      const filename = `rate-of-operations-${Date.now()}.${fileType}`;
+
+      if (fileType === "xlsx") {
+        res.setHeader(
+          "Content-Type",
+          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        );
+      } else if (fileType === "csv") {
+        res.setHeader("Content-Type", "text/csv");
+      }
+
+      res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+      res.send(responseDto);
+    } catch (err) {
+      next(err);
+    }
+  },
 };
 module.exports = rate_of_opeartions_controller;
