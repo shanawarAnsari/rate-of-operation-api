@@ -1,10 +1,11 @@
 const { executeQuery } = require("../../../common/sqlConnectionManager");
-const excel = require("exceljs");
-const { Parser } = require("json2csv");
+const { getFilters, getRecipies, getReviewedStatus } = require("../responses");
 const {
   buildWhereClause,
   processTroChangeFilter,
 } = require("../helpers/sqlHelpers");
+const excel = require("exceljs");
+const { Parser } = require("json2csv");
 
 const appService = {
   getRecipies: async (req) => {
@@ -24,7 +25,6 @@ const appService = {
       ? buildWhereClause(req.body.filters)
       : "";
 
-    // Query to get the filtered rows with pagination
     let query = `SELECT * 
       FROM [dbo].[T_NA_PRODRATE_PLANNINGRATE_PERSONALCARE]
       WHERE SNAPSHOT_DATE BETWEEN @startDate AND @endDate
@@ -34,49 +34,24 @@ const appService = {
       OFFSET @offset ROWS
       FETCH NEXT @rowsPerPage ROWS ONLY;`;
 
-    // Query to get the total count of matching rows
-    let countQuery = `SELECT COUNT(*) AS totalCount
-      FROM [dbo].[T_NA_PRODRATE_PLANNINGRATE_PERSONALCARE]
-      WHERE SNAPSHOT_DATE BETWEEN @startDate AND @endDate
-      ?reviewedStatus?
-      ?filterConditions?`;
-
     const params = {
       offset: offset,
       rowsPerPage: rowsPerPage,
       startDate: startDate.toISOString(),
       endDate: endDate.toISOString(),
     };
-
     query = query.replace("?reviewedStatus?", reviewedStatus);
     query = query.replace("?filterConditions?", filterConditions);
-    countQuery = countQuery.replace("?reviewedStatus?", reviewedStatus);
-    countQuery = countQuery.replace("?filterConditions?", filterConditions);
-
     console.log("Query:", query);
-
-    try {
-      const rows = await executeQuery(query, params);
-      const countResult = await executeQuery(countQuery, params);
-      const rowsCount =
-        countResult && countResult[0] ? countResult[0].totalCount : 0;
-
-      return { rows, rowsCount };
-    } catch (error) {
-      console.error("Error executing recipies query:", error);
-      throw error;
-    }
+    let recipesData = getRecipies();
+    let rows = recipesData.rows;
+    let rowsCount = recipesData.rowsCount;
+    response = { rows, rowsCount };
+    return response;
   },
   getCategories: async () => {
-    try {
-      // Currently only returning Personal Care as that's the only category
-      // In future, this could be fetched from database if multiple categories exist
-      const response = ["Personal Care"];
-      return response;
-    } catch (error) {
-      console.error("Error getting categories:", error);
-      throw error;
-    }
+    response = ["Personal Care"];
+    return response;
   },
   getFilters: async (req) => {
     const startDate = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
@@ -91,53 +66,8 @@ const appService = {
       startDate: startDate.toISOString(),
       endDate: endDate.toISOString(),
     };
-
-    try {
-      const result = await executeQuery(query, params);
-
-      // Transform the result into the required filter structure
-      const filters = {
-        RECIPE_TYPE: [
-          ...new Set(result.filter((r) => r.RECIPE_TYPE).map((r) => r.RECIPE_TYPE)),
-        ],
-        MAKER_RESOURCE: [
-          ...new Set(
-            result.filter((r) => r.MAKER_RESOURCE).map((r) => r.MAKER_RESOURCE)
-          ),
-        ],
-        PACKER_RESOURCE: [
-          ...new Set(
-            result.filter((r) => r.PACKER_RESOURCE).map((r) => r.PACKER_RESOURCE)
-          ),
-        ],
-        PRODUCT_CODE: [
-          ...new Set(
-            result.filter((r) => r.PRODUCT_CODE).map((r) => r.PRODUCT_CODE)
-          ),
-        ],
-        PROD_DESC: [
-          ...new Set(result.filter((r) => r.PROD_DESC).map((r) => r.PROD_DESC)),
-        ],
-        PRODUCT_VARIANT: [
-          ...new Set(
-            result.filter((r) => r.PRODUCT_VARIANT).map((r) => r.PRODUCT_VARIANT)
-          ),
-        ],
-        PRODUCT_SIZE: [
-          ...new Set(
-            result.filter((r) => r.PRODUCT_SIZE).map((r) => r.PRODUCT_SIZE)
-          ),
-        ],
-        SETUP_GROUP: [
-          ...new Set(result.filter((r) => r.SETUP_GROUP).map((r) => r.SETUP_GROUP)),
-        ],
-      };
-
-      return filters;
-    } catch (error) {
-      console.error("Error executing filters query:", error);
-      throw error;
-    }
+    let response = getFilters();
+    return response;
   },
   getReviewedStatus: async (req) => {
     const startDate = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
@@ -150,22 +80,8 @@ const appService = {
       startDate: startDate.toISOString(),
       endDate: endDate.toISOString(),
     };
-
-    try {
-      const result = await executeQuery(query, params);
-
-      // Transform the result into the required structure
-      // Always include "All" option and filter out null values
-      const reviewedStatuses = [
-        "All",
-        ...new Set(result.filter((r) => r.REVIEWED).map((r) => r.REVIEWED)),
-      ];
-
-      return reviewedStatuses;
-    } catch (error) {
-      console.error("Error executing reviewed status query:", error);
-      throw error;
-    }
+    let response = getReviewedStatus();
+    return response;
   },
   searchRecipies: async (req) => {
     if (!req.body.searchText || req.body.searchText.trim() === "") {
@@ -280,6 +196,77 @@ const appService = {
       const countResult = await executeQuery(countQuery, params);
       const rowsCount =
         countResult && countResult[0] ? countResult[0].totalCount : 0;
+
+      // If database query fails, fall back to mock data for testing
+      if (!rows) {
+        console.warn("Falling back to mock data for testing");
+        // Get mock data
+        const recipesData = getRecipies();
+        const allMockResults = recipesData.rows;
+
+        // Filter by search text
+        let mockResults = allMockResults.filter((row) =>
+          Object.entries(row).some(
+            ([key, value]) =>
+              value &&
+              typeof value === "string" &&
+              value.toLowerCase().includes(searchText.toLowerCase())
+          )
+        );
+
+        // Apply reviewedStatus filter if not "All"
+        if (req.body.reviewedStatus !== "All") {
+          mockResults = mockResults.filter(
+            (row) => row.REVIEWED === req.body.reviewedStatus
+          );
+        }
+
+        // Apply regular filters
+        if (req.body.filters) {
+          Object.entries(req.body.filters).forEach(([key, values]) => {
+            if (key !== "tro_change" && values && values.length > 0) {
+              mockResults = mockResults.filter(
+                (row) => row[key] && values.includes(row[key])
+              );
+            }
+          });
+
+          // Apply tro_change filter specifically
+          if (
+            req.body.filters.tro_change &&
+            req.body.filters.tro_change.length > 0
+          ) {
+            mockResults = mockResults.filter((row) => {
+              if (row.RO_PCT_CHANGE === null || row.RO_PCT_CHANGE === undefined) {
+                return false;
+              }
+
+              const absPctChange = Math.abs(row.RO_PCT_CHANGE);
+
+              return req.body.filters.tro_change.some((range) => {
+                if (range === "above 15%") {
+                  return absPctChange > 15;
+                }
+
+                const matches = range.match(/(\d+)% to (\d+)%/);
+                if (matches && matches.length === 3) {
+                  const min = parseInt(matches[1]);
+                  const max = parseInt(matches[2]);
+                  return absPctChange >= min && absPctChange <= max;
+                }
+
+                return false;
+              });
+            });
+          }
+        }
+
+        const paginatedMockResults = mockResults.slice(offset, offset + rowsPerPage);
+        return {
+          rows: paginatedMockResults,
+          rowsCount: mockResults.length,
+        };
+      }
 
       return { rows, rowsCount };
     } catch (error) {
@@ -445,17 +432,57 @@ const appService = {
       query = query.replace("?filterConditions?", filterConditions);
       query = query.replace("?troChangeCondition?", troChangeCondition);
 
-      console.log("Download Query:", query); // Execute the query to get filtered data
-      const rows = await executeQuery(query, params);
+      console.log("Download Query:", query);
 
-      if (!rows || rows.length === 0) {
-        throw new Error("No data available for download");
+      // In a real implementation, we would use executeQuery here
+      // For now, use the mock data from getRecipies()
+      let recipesData = getRecipies();
+      let allRows = recipesData.rows;
+
+      // Apply filters manually for the mock data
+      if (req.body.reviewedStatus !== "All") {
+        allRows = allRows.filter((row) => row.REVIEWED === req.body.reviewedStatus);
       }
 
-      // Create an object structure with the SQL results
-      const recipesData = {
-        rows: rows,
-        rowsCount: rows.length,
+      // Apply other filters
+      if (req.body.filters) {
+        Object.entries(req.body.filters).forEach(([key, values]) => {
+          if (key !== "tro_change" && values && values.length > 0) {
+            allRows = allRows.filter((row) => row[key] && values.includes(row[key]));
+          }
+        });
+
+        // Apply tro_change filter specifically
+        if (req.body.filters.tro_change && req.body.filters.tro_change.length > 0) {
+          allRows = allRows.filter((row) => {
+            if (row.RO_PCT_CHANGE === null || row.RO_PCT_CHANGE === undefined) {
+              return false;
+            }
+
+            const absPctChange = Math.abs(row.RO_PCT_CHANGE);
+
+            return req.body.filters.tro_change.some((range) => {
+              if (range === "above 15%") {
+                return absPctChange > 15;
+              }
+
+              const matches = range.match(/(\d+)% to (\d+)%/);
+              if (matches && matches.length === 3) {
+                const min = parseInt(matches[1]);
+                const max = parseInt(matches[2]);
+                return absPctChange >= min && absPctChange <= max;
+              }
+
+              return false;
+            });
+          });
+        }
+      }
+
+      // Create an object structure similar to what getRecipies returns
+      recipesData = {
+        rows: allRows,
+        rowsCount: allRows.length,
       };
 
       if (!recipesData || !recipesData.rows || recipesData.rows.length === 0) {
