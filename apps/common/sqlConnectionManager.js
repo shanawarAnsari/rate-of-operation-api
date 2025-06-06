@@ -1,33 +1,36 @@
+
 const sql = require('mssql');
 const { DefaultAzureCredential } = require('@azure/identity');
 const cacheManager = require('../common/cache/cacheManager');
 
 let connectionPool;
+let accessToken;
+let tokenExpiry;
 
 async function getConnectionPool() {
-  if (connectionPool != null) return connectionPool;
+  if (connectionPool && new Date() < tokenExpiry) {
+    return connectionPool
+  };
 
-  let {
-    sqlServer,
-    sqlDb,
-  } = cacheManager.getCache('key_vault_cache');
-
+  let { sqlServer, sqlDb } = cacheManager.getCache('key_vault_cache');
   const credential = new DefaultAzureCredential();
-  const tokenResponse = await credential.getToken('https://database.windows.net/.default');
+  const tokenResponse = await credential.getToken('https://database.windows.net/');
+  accessToken = tokenResponse.token;
+  tokenExpiry = new Date(tokenResponse.expiresOnTimestamp);
 
   const poolConfig = {
     server: sqlServer,
+    port: 1433,
     database: sqlDb,
-    authentication: {
-      type: 'azure-active-directory-access-token',
-      options: {
-        token: tokenResponse.token,
-      }
-    },
     options: {
-      encrypt: true, // Required for Azure SQL Database
-      trustServerCertificate: false // Change to false if you have a valid certificate
+      encrypt: true,
+      enableArithAbort: true,
+      connectTimeout: 30000 // 30 seconds
     },
+    authentication: {
+      type: 'azure-active-directory-access-token'
+    },
+    token: accessToken
   };
 
   return sql
@@ -55,7 +58,7 @@ module.exports = {
           request.input(key, value);
         }
         const result = await request.query(sqlText);
-        resolve(result.recordset);
+        resolve(result?.recordset);
       } catch (err) {
         reject(err);
       }
