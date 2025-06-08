@@ -17,7 +17,7 @@ router.get(
 
 // POST /users - Create new user
 router.post(
-  "/",
+  "/user",
   validateRequest(userValidation.createUser),
   userController.createUser
 );
