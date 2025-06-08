@@ -335,7 +335,7 @@ const recipies = {
       ASSET_N_6MONTH: 0,
       ASSET_RO_6MONTH: null,
       ERROR_CODE: 0,
-      ERROR_REPORT: null,
+      ERROR_REPORT: "Soft Error",
       COMMENT: null,
       CONSTRAINING_RESOURCE: null,
       CONSTRAINING_RESOURCE_2: null,
@@ -420,8 +420,8 @@ const recipies = {
       ASSET_RO_3MONTH: 35.3086,
       ASSET_N_6MONTH: 216,
       ASSET_RO_6MONTH: 36.6007,
-      ERROR_CODE: 0,
-      ERROR_REPORT: null,
+      ERROR_CODE: 1,
+      ERROR_REPORT: "Hard Error",
       COMMENT: null,
       CONSTRAINING_RESOURCE: null,
       CONSTRAINING_RESOURCE_2: null,
@@ -465,7 +465,7 @@ const recipies = {
       NEW_PLANNING_TIME: 1.321,
       RECOMMENDED_RO_SOURCE: "RECIPE EXCLUSION CARRY FORWARD PREVIOUS RATE NoOrders",
       RULEBASED_RO_SOURCE: null,
-      REVIEWED: "Y - RECIPE EXCLUSION",
+      REVIEWED: "N",
       ASSET_SKU_N_1MONTH: 0,
       ASSET_SKU_RO_1MONTH: null,
       ASSET_SKU_N_2MONTH: 0,
@@ -551,7 +551,7 @@ const recipies = {
       NEW_PLANNING_TIME: 0.967,
       RECOMMENDED_RO_SOURCE: "RECIPE EXCLUSION CARRY FORWARD PREVIOUS RATE NoOrders",
       RULEBASED_RO_SOURCE: null,
-      REVIEWED: "Y - RECIPE EXCLUSION",
+      REVIEWED: "N",
       ASSET_SKU_N_1MONTH: 0,
       ASSET_SKU_RO_1MONTH: null,
       ASSET_SKU_N_2MONTH: 0,
@@ -637,7 +637,7 @@ const recipies = {
       NEW_PLANNING_TIME: 1.26,
       RECOMMENDED_RO_SOURCE: "RECIPE EXCLUSION CARRY FORWARD PREVIOUS RATE NoOrders",
       RULEBASED_RO_SOURCE: null,
-      REVIEWED: "Y - RECIPE EXCLUSION",
+      REVIEWED: "N",
       ASSET_SKU_N_1MONTH: 0,
       ASSET_SKU_RO_1MONTH: null,
       ASSET_SKU_N_2MONTH: 0,
@@ -679,7 +679,7 @@ const recipies = {
       ASSET_N_6MONTH: 0,
       ASSET_RO_6MONTH: null,
       ERROR_CODE: 0,
-      ERROR_REPORT: null,
+      ERROR_REPORT: "Soft Error",
       COMMENT: null,
       CONSTRAINING_RESOURCE: null,
       CONSTRAINING_RESOURCE_2: null,
@@ -703,6 +703,7 @@ const filters = [
     PRODUCT_VARIANT: "PU,LD",
     PRODUCT_SIZE: "SIZE 2 GIRL",
     SETUP_GROUP: "BB18PLD2G",
+    INTERFACE: "CC PANT",
   },
   {
     RECIPE_TYPE: "MAKER_PACKER",
@@ -713,6 +714,7 @@ const filters = [
     PRODUCT_VARIANT: "PU,LD",
     PRODUCT_SIZE: "SIZE 2 GIRL",
     SETUP_GROUP: "BB18PLD2G",
+    INTERFACE: "BABY WIPES",
   },
   {
     RECIPE_TYPE: "MAKER_PACKER",
@@ -723,6 +725,7 @@ const filters = [
     PRODUCT_VARIANT: "PU,LD",
     PRODUCT_SIZE: "SIZE 2 BOY",
     SETUP_GROUP: "BB18PLD2B",
+    INTERFACE: "CC PANT",
   },
   {
     RECIPE_TYPE: "MAKER_PACKER",
@@ -733,6 +736,7 @@ const filters = [
     PRODUCT_VARIANT: "PU,LD",
     PRODUCT_SIZE: "SIZE 2 BOY",
     SETUP_GROUP: "BB18PLD2B",
+    INTERFACE: "BABY WIPES",
   },
   {
     RECIPE_TYPE: "MAKER_PACKER",
@@ -743,6 +747,7 @@ const filters = [
     PRODUCT_VARIANT: "PU,LD",
     PRODUCT_SIZE: "SIZE 3 GIRL",
     SETUP_GROUP: "BB18PLD3G",
+    INTERFACE: "CC PANT",
   },
   {
     RECIPE_TYPE: "MAKER_PACKER",
@@ -753,6 +758,7 @@ const filters = [
     PRODUCT_VARIANT: "PU,LD",
     PRODUCT_SIZE: "SIZE 3 GIRL",
     SETUP_GROUP: "BB18PLD3G",
+    INTERFACE: "BABY WIPES",
   },
   {
     RECIPE_TYPE: "MAKER_PACKER",
@@ -763,6 +769,7 @@ const filters = [
     PRODUCT_VARIANT: "PU,LD",
     PRODUCT_SIZE: "SIZE 3 BOY",
     SETUP_GROUP: "BB18PLD3B",
+    INTERFACE: "CC PANT",
   },
   {
     RECIPE_TYPE: "MAKER_PACKER",
@@ -773,6 +780,7 @@ const filters = [
     PRODUCT_VARIANT: "PU,LD",
     PRODUCT_SIZE: "SIZE 3 BOY",
     SETUP_GROUP: "BB18PLD3B",
+    INTERFACE: "BABY WIPES",
   },
   {
     RECIPE_TYPE: "MAKER_PACKER",
@@ -783,6 +791,7 @@ const filters = [
     PRODUCT_VARIANT: "PU,LD",
     PRODUCT_SIZE: "SIZE 2 BOY",
     SETUP_GROUP: "BB18PLD2B",
+    INTERFACE: "CC PANT",
   },
   {
     RECIPE_TYPE: "MAKER_PACKER",
@@ -793,6 +802,7 @@ const filters = [
     PRODUCT_VARIANT: "PU,LD",
     PRODUCT_SIZE: "SIZE 2 BOY",
     SETUP_GROUP: "BB18PLD2B",
+    INTERFACE: "BABY WIPES",
   },
   {
     RECIPE_TYPE: "MAKER_PACKER",
@@ -803,6 +813,7 @@ const filters = [
     PRODUCT_VARIANT: "PU,LD",
     PRODUCT_SIZE: "SIZE 2 GIRL",
     SETUP_GROUP: "BB18PLD2G",
+    INTERFACE: "CC PANT",
   },
   {
     RECIPE_TYPE: "MAKER_PACKER",
@@ -813,6 +824,7 @@ const filters = [
     PRODUCT_VARIANT: "PU,LD",
     PRODUCT_SIZE: "SIZE 2 GIRL",
     SETUP_GROUP: "BB18PLD2G",
+    INTERFACE: "BABY WIPES",
   },
   {
     RECIPE_TYPE: "MAKER_PACKER",
@@ -823,6 +835,7 @@ const filters = [
     PRODUCT_VARIANT: "GNITE",
     PRODUCT_SIZE: "SIZE 4 BOY",
     SETUP_GROUP: "BB19G4B",
+    INTERFACE: "CC PANT",
   },
   {
     RECIPE_TYPE: "MAKER_PACKER",
@@ -833,6 +846,7 @@ const filters = [
     PRODUCT_VARIANT: "GNITE",
     PRODUCT_SIZE: "SIZE 4 BOY",
     SETUP_GROUP: "BB19G4B",
+    INTERFACE: "BABY WIPES",
   },
   {
     RECIPE_TYPE: "MAKER_PACKER",
@@ -843,6 +857,7 @@ const filters = [
     PRODUCT_VARIANT: "GNITE",
     PRODUCT_SIZE: "SIZE 4 GIRL",
     SETUP_GROUP: "BB19G4G",
+    INTERFACE: "CC PANT",
   },
   {
     RECIPE_TYPE: "MAKER_PACKER",
@@ -853,6 +868,7 @@ const filters = [
     PRODUCT_VARIANT: "PU,LD",
     PRODUCT_SIZE: "SIZE 2 GIRL",
     SETUP_GROUP: "BU10PLD2G",
+    INTERFACE: "BABY WIPES",
   },
   {
     RECIPE_TYPE: "MAKER_PACKER",
@@ -863,6 +879,7 @@ const filters = [
     PRODUCT_VARIANT: "PU,LD",
     PRODUCT_SIZE: "SIZE 2 BOY",
     SETUP_GROUP: "BU10PLD2B",
+    INTERFACE: "CC PANT",
   },
   {
     RECIPE_TYPE: "MAKER_PACKER",
@@ -873,6 +890,7 @@ const filters = [
     PRODUCT_VARIANT: "PU,LD",
     PRODUCT_SIZE: "SIZE 2 BOY",
     SETUP_GROUP: "BU10PLD2B",
+    INTERFACE: "BABY WIPES",
   },
   {
     RECIPE_TYPE: "MAKER_PACKER",
@@ -883,6 +901,7 @@ const filters = [
     PRODUCT_VARIANT: "PU,LD",
     PRODUCT_SIZE: "SIZE 3 GIRL",
     SETUP_GROUP: "BU10PLD3G",
+    INTERFACE: "CC PANT",
   },
   {
     RECIPE_TYPE: "MAKER_PACKER",
@@ -893,6 +912,7 @@ const filters = [
     PRODUCT_VARIANT: "PU,LD",
     PRODUCT_SIZE: "SIZE 3 GIRL",
     SETUP_GROUP: "BU10PLD3G",
+    INTERFACE: "BABY WIPES",
   },
 ];
 const reviewedStatus = [

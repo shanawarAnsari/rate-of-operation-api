@@ -1,5 +1,4 @@
 const express = require("express");
-const express = require("express");
 const router = express.Router();
 const rate_of_operations_controller = require("../controller");
 const { validateRequest } = require("../../../../common/joiValidator/validation");
