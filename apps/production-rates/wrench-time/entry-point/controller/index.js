@@ -1,4 +1,4 @@
-const appService = require("../../doamin");
+const appService = require("../../domain");
 
 const wrenchtime_controller = {
   getFilters: async (req, res, next) => {

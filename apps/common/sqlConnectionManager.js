@@ -11,176 +11,261 @@ const CONFIG = {
   RETRY_COUNT: 2,
   INITIAL_DELAY_MS: 500,
   AZURE_DB_SCOPE: "https://database.windows.net/",
+  MAX_POOL_SIZE: 10,
+  MIN_POOL_SIZE: 0,
+  IDLE_TIMEOUT_MS: 30000,
+  MAX_RETRIES_BEFORE_ALERT: 3,
+  QUERY_TIMEOUT_MS: 30000,
+  // Add monitoring thresholds
+  SLOW_QUERY_THRESHOLD_MS: 1000,
+  CONNECTION_ALERT_THRESHOLD: 5,
 };
 
-// Custom error types for better error handling
-class TokenError extends Error {
-  constructor(message) {
-    super(message);
-    this.name = "TokenError";
-  }
-}
+// Custom error factories
+const createTokenError = (message) => {
+  const error = new Error(message);
+  error.name = "TokenError";
+  return error;
+};
 
-class ConnectionError extends Error {
-  constructor(message) {
-    super(message);
-    this.name = "ConnectionError";
-  }
-}
+const createConnectionError = (message) => {
+  const error = new Error(message);
+  error.name = "ConnectionError";
+  return error;
+};
 
-// Token management class
-class TokenManager {
-  constructor() {
-    this.accessToken = null;
-    this.tokenExpiry = null;
-    this.refreshingPromise = null;
-    this.credential = new DefaultAzureCredential();
-  }
+// Token management - functional approach
+const createTokenManager = () => {
+  // Private state in closure
+  let accessToken = null;
+  let tokenExpiry = null;
+  let refreshingPromise = null;
+  const credential = new DefaultAzureCredential();
 
-  async fetchToken() {
-    try {
-      console.log("🔑 Fetching new access token...");
-      const tokenResponse = await this.credential.getToken(CONFIG.AZURE_DB_SCOPE);
+  // Return object with methods
+  return {
+    async fetchToken() {
+      try {
+        console.log("🔑 Fetching new access token...");
+        const tokenResponse = await credential.getToken(CONFIG.AZURE_DB_SCOPE);
 
-      this.accessToken = tokenResponse.token;
-      this.tokenExpiry = new Date(tokenResponse.expiresOnTimestamp);
+        accessToken = tokenResponse.token;
+        tokenExpiry = new Date(tokenResponse.expiresOnTimestamp);
 
-      console.log("✅ Access token fetched. Expires at:", this.tokenExpiry);
-      return this.accessToken;
-    } catch (error) {
-      console.error("❌ Failed to fetch access token:", error);
-      throw new TokenError(`Failed to fetch access token: ${error.message}`);
-    }
-  }
+        console.log("✅ Access token fetched. Expires at:", tokenExpiry);
+        return accessToken;
+      } catch (error) {
+        console.error("❌ Failed to fetch access token:", error);
+        throw createTokenError(`Failed to fetch access token: ${error.message}`);
+      }
+    },
 
-  isTokenValid() {
-    if (!this.accessToken || !this.tokenExpiry) {
-      return false;
-    }
-
-    const now = new Date();
-    const expiryWithBuffer = new Date(
-      this.tokenExpiry.getTime() - CONFIG.TOKEN_REFRESH_BUFFER_MS
-    );
-    return now < expiryWithBuffer;
-  }
-
-  isTokenExpired() {
-    if (!this.tokenExpiry) return true;
-    return new Date() >= this.tokenExpiry;
-  }
-
-  async refreshIfNeeded() {
-    if (this.isTokenValid()) {
-      return this.accessToken;
-    }
-
-    if (!this.refreshingPromise) {
-      this.refreshingPromise = this.fetchToken().finally(() => {
-        this.refreshingPromise = null;
-      });
-    }
-
-    return await this.refreshingPromise;
-  }
-
-  getTimeUntilExpiry() {
-    if (!this.tokenExpiry) return -1;
-    return Math.round((this.tokenExpiry.getTime() - new Date().getTime()) / 60000);
-  }
-
-  reset() {
-    this.accessToken = null;
-    this.tokenExpiry = null;
-    this.refreshingPromise = null;
-  }
-}
-
-// Connection pool management class
-class ConnectionPoolManager {
-  constructor(tokenManager) {
-    this.tokenManager = tokenManager;
-    this.connectionPool = null;
-  }
-
-  async createPool() {
-    try {
-      const { sqlServer, sqlDb } = cacheManager.getCache("key_vault_cache");
-      const token = await this.tokenManager.refreshIfNeeded();
-
-      if (!token || typeof token !== "string") {
-        throw new TokenError("Invalid or missing access token");
+    isTokenValid() {
+      if (!accessToken || !tokenExpiry) {
+        return false;
       }
 
-      const poolConfig = {
-        server: sqlServer,
-        port: CONFIG.SQL_PORT,
-        database: sqlDb,
-        options: {
-          encrypt: true,
-          enableArithAbort: true,
-          connectTimeout: CONFIG.CONNECTION_TIMEOUT_MS,
-        },
-        authentication: {
-          type: "azure-active-directory-access-token",
-          options: { token },
-        },
-      };
+      const now = new Date();
+      const expiryWithBuffer = new Date(
+        tokenExpiry.getTime() - CONFIG.TOKEN_REFRESH_BUFFER_MS
+      );
+      return now < expiryWithBuffer;
+    },
 
-      console.log("🔌 Creating new SQL connection pool...");
-      const newPool = await sql.connect(poolConfig);
-      console.log("✅ SQL connection pool created successfully");
-      return newPool;
-    } catch (error) {
-      console.error("❌ Failed to create connection pool:", error);
-      throw new ConnectionError(
-        `Failed to create connection pool: ${error.message}`
+    isTokenExpired() {
+      if (!tokenExpiry) return true;
+      return new Date() >= tokenExpiry;
+    },
+
+    async refreshIfNeeded() {
+      if (this.isTokenValid()) {
+        return accessToken;
+      }
+
+      if (!refreshingPromise) {
+        refreshingPromise = this.fetchToken().finally(() => {
+          refreshingPromise = null;
+        });
+      }
+
+      return await refreshingPromise;
+    },
+
+    getTimeUntilExpiry() {
+      if (!tokenExpiry) return -1;
+      return Math.round((tokenExpiry.getTime() - new Date().getTime()) / 60000);
+    },
+
+    reset() {
+      accessToken = null;
+      tokenExpiry = null;
+      refreshingPromise = null;
+    },
+
+    async forceRefresh() {
+      this.reset();
+      return await this.fetchToken();
+    },
+
+    // For testing/debugging
+    getState() {
+      return {
+        hasToken: !!accessToken,
+        expiresAt: tokenExpiry,
+        isRefreshing: !!refreshingPromise,
+      };
+    },
+  };
+};
+
+// Connection pool management - functional approach
+const createConnectionPoolManager = (tokenManager) => {
+  // Private state in closure
+  let connectionPool = null;
+  let failedConnectionAttempts = 0;
+  let lastReconnectTime = null;
+
+  // Return object with methods
+  return {
+    async createPool() {
+      try {
+        const { sqlServer, sqlDb } = cacheManager.getCache("key_vault_cache");
+        const token = await tokenManager.refreshIfNeeded();
+
+        if (!token || typeof token !== "string") {
+          throw createTokenError("Invalid or missing access token");
+        }
+
+        const poolConfig = {
+          server: sqlServer,
+          port: CONFIG.SQL_PORT,
+          database: sqlDb,
+          options: {
+            encrypt: true,
+            enableArithAbort: true,
+            connectTimeout: CONFIG.CONNECTION_TIMEOUT_MS,
+            requestTimeout: CONFIG.QUERY_TIMEOUT_MS,
+            maxRetriesOnTransientErrors: 3,
+            trustServerCertificate: false,
+          },
+          pool: {
+            max: CONFIG.MAX_POOL_SIZE,
+            min: CONFIG.MIN_POOL_SIZE,
+            idleTimeoutMillis: CONFIG.IDLE_TIMEOUT_MS,
+            acquireTimeoutMillis: CONFIG.CONNECTION_TIMEOUT_MS,
+          },
+          authentication: {
+            type: "azure-active-directory-access-token",
+            options: { token },
+          },
+        };
+
+        console.log("🔌 Creating new SQL connection pool...");
+        const newPool = await sql.connect(poolConfig);
+        console.log("✅ SQL connection pool created successfully");
+        connectionPool = newPool;
+        return newPool;
+      } catch (error) {
+        failedConnectionAttempts++;
+        if (failedConnectionAttempts >= CONFIG.CONNECTION_ALERT_THRESHOLD) {
+          console.error(
+            `⚠️ Critical: Multiple connection failures detected (${failedConnectionAttempts} attempts)`
+          );
+          // Here you could add alerting mechanism
+        }
+        console.error("❌ Failed to create connection pool:", error);
+        throw createConnectionError(
+          `Failed to create connection pool: ${error.message}`
+        );
+      }
+    },
+
+    async closePool() {
+      if (connectionPool) {
+        try {
+          await connectionPool.close();
+          console.log("🧹 Connection pool closed");
+        } catch (error) {
+          console.warn("⚠️ Warning: Failed to close connection pool:", error);
+        } finally {
+          connectionPool = null;
+        }
+      }
+    },
+
+    async validateConnection() {
+      try {
+        if (!connectionPool || !connectionPool.connected) {
+          return false;
+        }
+
+        // Test the connection with a simple query
+        const request = connectionPool.request();
+        await request.query("SELECT 1 AS TestConnection");
+        return true;
+      } catch (error) {
+        console.warn("⚠️ Connection validation failed:", error.message);
+        return false;
+      }
+    },
+
+    async getPool() {
+      // Always validate the existing connection first
+      if (connectionPool && !(await this.validateConnection())) {
+        console.warn("⚠️ Connection validation failed, closing pool...");
+        await this.closePool();
+      }
+
+      // Check token validity
+      if (tokenManager.isTokenExpired()) {
+        console.warn("⚠️ Token expired, refreshing and recreating pool...");
+        await this.closePool();
+        tokenManager.reset();
+      }
+
+      // Ensure we have a valid token
+      await tokenManager.refreshIfNeeded();
+
+      // Create or recreate pool if needed
+      if (!connectionPool || !connectionPool.connected) {
+        console.warn("⚠️ Connection pool not available, creating new one...");
+        await this.closePool();
+        await this.createPool();
+      }
+
+      return connectionPool;
+    },
+
+    getCurrentPool() {
+      return connectionPool;
+    },
+  };
+};
+
+// Query execution - functional approach
+const createQueryExecutor = (poolManager) => {
+  const queryMetrics = new Map(); // Track query performance
+
+  const recordQueryMetrics = (sqlText, startTime, success) => {
+    const duration = Date.now() - startTime;
+    if (duration > CONFIG.SLOW_QUERY_THRESHOLD_MS) {
+      console.warn(
+        `⚠️ Slow query detected (${duration}ms): ${sqlText.substring(0, 100)}...`
       );
     }
-  }
 
-  async closePool() {
-    if (this.connectionPool) {
-      try {
-        await this.connectionPool.close();
-        console.log("🧹 Connection pool closed");
-      } catch (error) {
-        console.warn("⚠️ Warning: Failed to close connection pool:", error);
-      } finally {
-        this.connectionPool = null;
-      }
-    }
-  }
+    const metrics = queryMetrics.get(sqlText) || {
+      count: 0,
+      failures: 0,
+      totalTime: 0,
+    };
+    metrics.count++;
+    metrics.totalTime += duration;
+    if (!success) metrics.failures++;
+    queryMetrics.set(sqlText, metrics);
+  };
 
-  async getPool() {
-    // Check token validity first
-    if (this.tokenManager.isTokenExpired()) {
-      console.warn("⚠️ Token expired, refreshing and recreating pool...");
-      await this.closePool();
-      this.tokenManager.reset();
-    }
-
-    // Ensure we have a valid token
-    await this.tokenManager.refreshIfNeeded();
-
-    // Create or recreate pool if needed
-    if (!this.connectionPool || !this.connectionPool.connected) {
-      console.warn("⚠️ Connection pool not available, creating new one...");
-      await this.closePool();
-      this.connectionPool = await this.createPool();
-    }
-
-    return this.connectionPool;
-  }
-}
-
-// Query execution class
-class QueryExecutor {
-  constructor(poolManager) {
-    this.poolManager = poolManager;
-  }
-
-  isRecoverableError(error) {
+  const isRecoverableError = (error) => {
     const recoverableCodes = ["ELOGIN", "ECONNCLOSED", "ETIMEOUT", "EREQUEST"];
     const recoverableMessages = [
       "Token is expired",
@@ -193,131 +278,205 @@ class QueryExecutor {
       recoverableCodes.includes(error.code) ||
       recoverableMessages.some((msg) => error.message.includes(msg))
     );
-  }
+  };
 
-  async executeWithRetry(sqlText, bindParams = {}, retryCount = CONFIG.RETRY_COUNT) {
-    let delayMs = CONFIG.INITIAL_DELAY_MS;
-
-    for (let attempt = 0; attempt <= retryCount; attempt++) {
-      try {
-        const pool = await this.poolManager.getPool();
-        const request = pool.request();
-
-        // Bind parameters
-        Object.entries(bindParams).forEach(([key, value]) => {
-          request.input(key, value);
-        });
-
-        console.log(
-          `[SQL] Executing query (Attempt ${attempt + 1}/${retryCount + 1})`
-        );
-        const result = await request.query(sqlText);
-        return result?.recordset;
-      } catch (error) {
-        const isLastAttempt = attempt === retryCount;
-        const isRecoverable = this.isRecoverableError(error);
-
-        if (isLastAttempt || !isRecoverable) {
-          console.error(
-            `[SQL] Query execution failed after ${attempt + 1} attempts:`,
-            error
-          );
-          throw error;
-        }
-
-        console.warn(
-          `[SQL] Recoverable error (${error.code || "Unknown"}): ${error.message}`
-        );
-        console.log(
-          `[SQL] Retrying in ${delayMs}ms... (${
-            retryCount - attempt
-          } attempts remaining)`
-        );
-
-        // Handle authentication errors
-        if (
-          error.message.includes("Token is expired") ||
-          error.message.includes("Authentication failed")
-        ) {
-          console.log("🔄 Forcing token refresh due to authentication error...");
-          this.poolManager.tokenManager.reset();
-          await this.poolManager.closePool();
-        }
-
-        await new Promise((resolve) => setTimeout(resolve, delayMs));
-        delayMs *= 2; // Exponential backoff
-      }
-    }
-  }
-}
-
-// Main SQL Manager class
-class SqlConnectionManager {
-  constructor() {
-    this.tokenManager = new TokenManager();
-    this.poolManager = new ConnectionPoolManager(this.tokenManager);
-    this.queryExecutor = new QueryExecutor(this.poolManager);
-    this.backgroundRefreshInterval = null;
-  }
-
-  async initialize() {
-    try {
-      console.log("🚀 Initializing SQL connection manager...");
-      await this.tokenManager.refreshIfNeeded();
-      this.startBackgroundRefresh();
-      console.log("✅ SQL connection manager initialized successfully");
-    } catch (error) {
-      console.error("❌ Failed to initialize SQL connection manager:", error);
-      throw error;
-    }
-  }
-
-  startBackgroundRefresh() {
-    this.backgroundRefreshInterval = setInterval(async () => {
-      try {
-        console.log("🕐 Background token refresh check...");
-        const timeUntilExpiry = this.tokenManager.getTimeUntilExpiry();
-
-        if (timeUntilExpiry > 0) {
-          console.log(`⏰ Token expires in ${timeUntilExpiry} minutes`);
-        }
-
-        await this.tokenManager.refreshIfNeeded();
-      } catch (error) {
-        console.error("❌ Background token refresh failed:", error);
-        this.tokenManager.reset();
-        await this.poolManager.closePool();
-      }
-    }, CONFIG.TOKEN_REFRESH_INTERVAL_MS);
-  }
-
-  async executeQuery(sqlText, bindParams = {}, retryCount = CONFIG.RETRY_COUNT) {
-    return await this.queryExecutor.executeWithRetry(
+  return {
+    async executeWithRetry(
       sqlText,
-      bindParams,
-      retryCount
-    );
+      bindParams = {},
+      retryCount = CONFIG.RETRY_COUNT
+    ) {
+      const startTime = Date.now();
+      let success = false;
+
+      let delayMs = CONFIG.INITIAL_DELAY_MS;
+
+      for (let attempt = 0; attempt <= retryCount; attempt++) {
+        try {
+          const pool = await poolManager.getPool();
+          const request = pool.request();
+
+          // Bind parameters
+          Object.entries(bindParams).forEach(([key, value]) => {
+            request.input(key, value);
+          });
+
+          console.log(
+            `[SQL] Executing query (Attempt ${attempt + 1}/${retryCount + 1})`
+          );
+          const result = await request.query(sqlText);
+          success = true;
+          return result?.recordset;
+        } catch (error) {
+          const isLastAttempt = attempt === retryCount;
+          const isRecoverable = isRecoverableError(error);
+
+          if (isLastAttempt || !isRecoverable) {
+            console.error(
+              `[SQL] Query execution failed after ${attempt + 1} attempts:`,
+              error
+            );
+            throw error;
+          }
+
+          console.warn(
+            `[SQL] Recoverable error (${error.code || "Unknown"}): ${error.message}`
+          );
+          console.log(
+            `[SQL] Retrying in ${delayMs}ms... (${
+              retryCount - attempt
+            } attempts remaining)`
+          );
+
+          // Handle authentication errors
+          if (
+            error.message.includes("Token is expired") ||
+            error.message.includes("Authentication failed")
+          ) {
+            console.log("🔄 Forcing token refresh due to authentication error...");
+            tokenManager.reset();
+            await poolManager.closePool();
+          }
+
+          await new Promise((resolve) => setTimeout(resolve, delayMs));
+          delayMs *= 2; // Exponential backoff
+        }
+      }
+    },
+
+    getQueryMetrics() {
+      return Array.from(queryMetrics.entries()).map(([query, metrics]) => ({
+        query,
+        averageTime: metrics.totalTime / metrics.count,
+        failureRate: metrics.failures / metrics.count,
+        totalExecutions: metrics.count,
+      }));
+    },
+  };
+};
+
+// Module-level state
+let backgroundRefreshInterval = null;
+const tokenManager = createTokenManager();
+const poolManager = createConnectionPoolManager(tokenManager);
+const queryExecutor = createQueryExecutor(poolManager);
+
+// Main functionality - exposed as standalone functions
+const initialize = async () => {
+  try {
+    console.log("🚀 Initializing SQL connection manager...");
+
+    // Force a fresh token on startup instead of just refreshing if needed
+    await tokenManager.forceRefresh();
+
+    // Create a fresh connection pool for the new session
+    await poolManager.closePool();
+    await poolManager.getPool();
+
+    startBackgroundRefresh();
+    console.log("✅ SQL connection manager initialized successfully");
+  } catch (error) {
+    console.error("❌ Failed to initialize SQL connection manager:", error);
+    throw error;
+  }
+};
+
+const startBackgroundRefresh = () => {
+  // Clear any existing interval
+  if (backgroundRefreshInterval) {
+    clearInterval(backgroundRefreshInterval);
   }
 
-  getSqlPool() {
-    return this.poolManager.connectionPool;
-  }
+  backgroundRefreshInterval = setInterval(async () => {
+    try {
+      console.log("🕐 Background token refresh check...");
+      const timeUntilExpiry = tokenManager.getTimeUntilExpiry();
 
-  async shutdown() {
-    if (this.backgroundRefreshInterval) {
-      clearInterval(this.backgroundRefreshInterval);
+      if (timeUntilExpiry > 0) {
+        console.log(`⏰ Token expires in ${timeUntilExpiry} minutes`);
+      }
+
+      await tokenManager.refreshIfNeeded();
+    } catch (error) {
+      console.error("❌ Background token refresh failed:", error);
+      tokenManager.reset();
+      await poolManager.closePool();
     }
-    await this.poolManager.closePool();
-    this.tokenManager.reset();
-    console.log("🛑 SQL connection manager shut down");
+  }, CONFIG.TOKEN_REFRESH_INTERVAL_MS);
+};
+
+const executeQuery = async (
+  sqlText,
+  bindParams = {},
+  retryCount = CONFIG.RETRY_COUNT
+) => {
+  return await queryExecutor.executeWithRetry(sqlText, bindParams, retryCount);
+};
+
+const getSqlPool = () => {
+  return poolManager.getCurrentPool();
+};
+
+const checkHealth = async () => {
+  try {
+    const pool = await poolManager.getPool();
+    const request = pool.request();
+    await request.query("SELECT 1 AS HealthCheck");
+    return {
+      status: "healthy",
+      tokenExpiresIn: tokenManager.getTimeUntilExpiry() + " minutes",
+      poolConnected: pool.connected,
+    };
+  } catch (error) {
+    return {
+      status: "unhealthy",
+      error: error.message,
+      tokenState: tokenManager.isTokenExpired() ? "expired" : "valid",
+    };
   }
-}
+};
 
-// Create singleton instance
-const sqlManager = new SqlConnectionManager();
+const shutdown = async () => {
+  console.log("🛑 Beginning SQL connection manager shutdown...");
 
-// Initialize on startup
-sqlManager.initialize().catch((error) => {
+  // Clear background refresh interval
+  if (backgroundRefreshInterval) {
+    clearInterval(backgroundRefreshInterval);
+    backgroundRefreshInterval = null;
+    console.log("🕐 Background refresh stopped");
+  }
+
+  // Close and clear connection pool
+  await poolManager.closePool();
+
+  // Reset token state
+  tokenManager.reset();
+
+  console.log("🛑 SQL connection manager shut down completely");
+  return { status: "shutdown_complete" };
+};
+
+const reinitialize = async () => {
+  console.log("🔄 Reinitializing SQL connection manager after shutdown...");
+
+  // Force token refresh
+  await tokenManager.forceRefresh();
+
+  // Ensure pool is closed before creating a new one
+  await poolManager.closePool();
+
+  // Get a fresh pool
+  await poolManager.getPool();
+
+  // Restart background refresh
+  startBackgroundRefresh();
+
+  console.log("✅ SQL connection manager reinitialized with fresh token and pool");
+  return { status: "reinitialized" };
+};
+
+// Initialize on module import
+initialize().catch((error) => {
   console.error("Failed to initialize SQL manager:", error);
 });
 
@@ -326,8 +485,13 @@ sql.on("error", (error) => {
   console.error("[SQL] Global connection error:", error);
 });
 
+// Export the public API
 module.exports = {
-  executeQuery: (sqlText, bindParams, retryCount) =>
-    sqlManager.executeQuery(sqlText, bindParams, retryCount),
-  getSqlPool: () => sqlManager.getSqlPool(),
+  executeQuery,
+  getSqlPool,
+  checkHealth,
+  shutdown,
+  reinitialize,
+  getConnectionMetrics,
+  CONFIG, // Expose configuration for monitoring
 };

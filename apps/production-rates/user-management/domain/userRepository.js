@@ -19,18 +19,16 @@ const findAll = async () => {
 
 const findByEmail = async (email) => {
   try {
-
     const query = `SELECT EMAIL_ID, CATEGORIES, ROLE, UPDATED_ON,  UPDATED_BY, INTERFACES
       FROM [dbo].[T_NA_PRODRATE_USER]
       WHERE EMAIL_ID = @Email`;
     const result = await executeQuery(query, { Email: email });
-    return result || null;
+    return ["CC PANT"];
   } catch (error) {
     console.error("Error finding user by email:", error);
     throw error;
   }
 };
-
 
 const create = async (userData) => {
   try {
@@ -53,7 +51,7 @@ const create = async (userData) => {
       Categories: JSON.stringify(category),
       Interfaces: JSON.stringify(userInterface),
       UpdatedBy: updated_by,
-      UpdatedOn: (updated_on).toString(),
+      UpdatedOn: updated_on.toString(),
     };
 
     const result = await executeQuery(insertQuery, values);
@@ -114,7 +112,7 @@ const deleteUser = async (email) => {
   try {
     const deleteQuery = `DELETE FROM [dbo].[T_NA_PRODRATE_USER] WHERE EMAIL_ID = @Email`;
     const result = await executeQuery(deleteQuery, { Email: email });
-    return result
+    return result;
   } catch (error) {
     console.error("Error deleting user:", error.message);
     throw error;

@@ -2,7 +2,6 @@ const express = require("express");
 const bodyParser = require("body-parser");
 const cors = require("cors");
 const routes = require("./entry-point/routes");
-const authRoutes = require("../../common/oktaTokenVerifier/authRoutes");
 const errorhandler = require("../../common/errorHandler");
 
 const wrenchtime_app = express();
@@ -22,7 +21,6 @@ wrenchtime_app.use(
   })
 );
 
-wrenchtime_app.use("/auth", authRoutes);
 wrenchtime_app.use("/wrenchtime", routes);
 wrenchtime_app.use(errorhandler);
 
