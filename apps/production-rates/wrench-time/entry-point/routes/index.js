@@ -1,37 +1,37 @@
 const express = require("express");
 const router = express.Router();
-const rate_of_operations_controller = require("../controller");
+const wrenchtime_controller = require("../controller");
 const { validateRequest } = require("../../../../common/joiValidator/validation");
 const {
-    getRecipiesSchema,
-    searchRecipiesSchema,
-    updateRecipiesSchema,
-    downloadRecipiesSchema,
+  getWrenchtimeSchema,
+  searchWrenchtimeSchema,
+  updateWrenchtimeSchema,
+  downloadWrenchtimeSchema,
 } = require("../../validation/requestSchemas.js");
 
 // Routes with validation
 router.post(
-    "/getRecipies",
-    validateRequest(getRecipiesSchema),
-    rate_of_operations_controller.getRateOfOperations
+  "/getWrenchtime",
+  validateRequest(getWrenchtimeSchema),
+  wrenchtime_controller.getWrenchtime
 );
-router.get("/getCategories", rate_of_operations_controller.getCategories);
-router.get("/getFilters", rate_of_operations_controller.getFilters);
-router.get("/getReviewedStatus", rate_of_operations_controller.getReviewedStatus);
+router.get("/getCategories", wrenchtime_controller.getCategories);
+router.get("/getFilters", wrenchtime_controller.getFilters);
+router.get("/getReviewedStatus", wrenchtime_controller.getReviewedStatus);
 router.post(
-    "/search",
-    validateRequest(searchRecipiesSchema),
-    rate_of_operations_controller.searchRecipies
-);
-router.post(
-    "/updateRecipies",
-    validateRequest(updateRecipiesSchema),
-    rate_of_operations_controller.updateRecipies
+  "/search",
+  validateRequest(searchWrenchtimeSchema),
+  wrenchtime_controller.searchWrenchtime
 );
 router.post(
-    "/downloadRecipes",
-    validateRequest(downloadRecipiesSchema),
-    rate_of_operations_controller.downloadRecipies
+  "/updateWrenchtime",
+  validateRequest(updateWrenchtimeSchema),
+  wrenchtime_controller.updateWrenchtime
+);
+router.post(
+  "/downloadWrenchtime",
+  validateRequest(downloadWrenchtimeSchema),
+  wrenchtime_controller.downloadWrenchtime
 );
 
 module.exports = router;

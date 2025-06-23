@@ -1,6 +1,6 @@
 const appService = require("../../doamin");
 
-const rate_of_opeartions_controller = {
+const wrenchtime_controller = {
   getFilters: async (req, res, next) => {
     try {
       let responseDto = await appService.getFilters(req, res, next);
@@ -9,9 +9,9 @@ const rate_of_opeartions_controller = {
       next(err);
     }
   },
-  getRateOfOperations: async (req, res, next) => {
+  getWrenchtime: async (req, res, next) => {
     try {
-      let responseDto = await appService.getRecipies(req, res, next);
+      let responseDto = await appService.getWrenchtime(req, res, next);
       res.status(200).json(responseDto);
     } catch (err) {
       next(err);
@@ -33,28 +33,28 @@ const rate_of_opeartions_controller = {
       next(err);
     }
   },
-  searchRecipies: async (req, res, next) => {
+  searchWrenchtime: async (req, res, next) => {
     try {
-      let responseDto = await appService.searchRecipies(req, res, next);
+      let responseDto = await appService.searchWrenchtime(req, res, next);
       res.status(200).json(responseDto);
     } catch (err) {
       next(err);
     }
   },
-  updateRecipies: async (req, res, next) => {
+  updateWrenchtime: async (req, res, next) => {
     try {
-      let responseDto = await appService.updateRecipies(req, res, next);
+      let responseDto = await appService.updateWrenchtime(req, res, next);
       res.status(200).json(responseDto);
     } catch (err) {
       next(err);
     }
   },
-  downloadRecipies: async (req, res, next) => {
+  downloadWrenchtime: async (req, res, next) => {
     try {
-      let responseDto = await appService.downloadRecipies(req, res, next);
+      let responseDto = await appService.downloadWrenchtime(req, res, next);
       // Set appropriate headers based on file type
       const fileType = req.body.fileType || "xlsx";
-      const filename = `rate-of-operations-${Date.now()}.${fileType}`;
+      const filename = `wrenchtime-${Date.now()}.${fileType}`;
 
       if (fileType === "xlsx") {
         res.setHeader(
@@ -72,4 +72,4 @@ const rate_of_opeartions_controller = {
     }
   },
 };
-module.exports = rate_of_opeartions_controller;
+module.exports = wrenchtime_controller;
