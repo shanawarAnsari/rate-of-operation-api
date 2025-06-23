@@ -1,26 +1,18 @@
 const userRepository = require("./userRepository");
 
-/**
- * Get all users
- */
+
 const getAllUsers = async () => {
   return await userRepository.findAll();
 };
 
-/**
- * Get user by email
- */
 const getUserByEmail = async (email) => {
   return await userRepository.findByEmail(email);
 };
 
-/**
- * Create new user
- */
 const createUser = async (userData) => {
   // Check if user already exists
   const existingUser = await userRepository.findByEmail(userData.email);
-  if (existingUser) {
+  if (existingUser?.length > 0) {
     const error = new Error("User with this email already exists");
     error.code = "DUPLICATE_EMAIL";
     throw error;
@@ -30,15 +22,12 @@ const createUser = async (userData) => {
     ...userData,
     updated_on: new Date(),
     // If updated_by is not provided, you might want to get it from request context
-    updated_by: userData.updated_by || "system",
+    updated_by: userData.updated_by || "Web App User",
   };
 
   return await userRepository.create(userToCreate);
 };
 
-/**
- * Update user
- */
 const updateUser = async (email, updateData) => {
   // Check if user exists
   const existingUser = await userRepository.findByEmail(email);
@@ -52,9 +41,6 @@ const updateUser = async (email, updateData) => {
   return await userRepository.update(email, dataToUpdate);
 };
 
-/**
- * Delete user
- */
 const deleteUser = async (email) => {
   // Check if user exists
   const existingUser = await userRepository.findByEmail(email);

@@ -1,215 +1,122 @@
-// Note: Replace this with your actual database connection
-// const db = require('../../../../config/database');
-
 const fs = require("fs").promises;
 const path = require("path");
+const { executeQuery } = require("../../../common/sqlConnectionManager");
 
-// Path to mock data file
-const mockDataPath = path.join(__dirname, "../data/mockUsers.json");
-
-/**
- * Helper function to read mock data
- */
-const readMockData = async () => {
-  try {
-    const data = await fs.readFile(mockDataPath, "utf8");
-    return JSON.parse(data);
-  } catch (error) {
-    console.error("Error reading mock data:", error);
-    return [];
-  }
-};
-
-/**
- * Helper function to write mock data
- */
-const writeMockData = async (data) => {
-  try {
-    await fs.writeFile(mockDataPath, JSON.stringify(data, null, 2), "utf8");
-  } catch (error) {
-    console.error("Error writing mock data:", error);
-    throw error;
-  }
-};
-
-/**
- * User Repository - Database operations for USER_MANAGEMENT table
- */
-
-/**
- * Find all users
- */
 const findAll = async () => {
   try {
-    // Using mock data for now
-    const users = await readMockData();
-    return users; // Database code (keep safe for future use):
-    // const query = `
-    //   SELECT email, role, category, interface, updated_by, updated_on
-    //   FROM USER_MANAGEMENT
-    //   ORDER BY updated_on DESC
-    // `;
-    // const result = await db.query(query);
-    // return result.rows;
+    const query = `
+      SELECT EMAIL_ID, CATEGORIES, ROLE, UPDATED_ON,  UPDATED_BY, INTERFACES
+      FROM [dbo].[T_NA_PRODRATE_USER]
+      ORDER BY EMAIL_ID`;
+
+    const result = await executeQuery(query);
+    return result;
   } catch (error) {
     console.error("Error finding all users:", error);
     throw error;
   }
 };
 
-/**
- * Find user by email
- */
 const findByEmail = async (email) => {
   try {
-    // Using mock data for now
-    const users = await readMockData();
-    const user = users.find((u) => u.email === email);
-    return user || null; // Database code (keep safe for future use):
-    // const query = `
-    //   SELECT email, role, category, interface, updated_by, updated_on
-    //   FROM USER_MANAGEMENT
-    //   WHERE email = ?
-    // `;
-    // const result = await db.query(query, [email]);
-    // return result.rows[0] || null;
+
+    const query = `SELECT EMAIL_ID, CATEGORIES, ROLE, UPDATED_ON,  UPDATED_BY, INTERFACES
+      FROM [dbo].[T_NA_PRODRATE_USER]
+      WHERE EMAIL_ID = @Email`;
+    const result = await executeQuery(query, { Email: email });
+    return result || null;
   } catch (error) {
     console.error("Error finding user by email:", error);
     throw error;
   }
 };
 
-/**
- * Create new user
- */
+
 const create = async (userData) => {
   try {
-    // Using mock data for now
-    const users = await readMockData();
-    const newUser = {
-      ...userData,
-      updated_on: userData.updated_on || new Date().toISOString(),
+    const {
+      email,
+      role,
+      category,
+      interface: userInterface,
+      updated_by,
+      updated_on,
+    } = userData;
+
+    const insertQuery = `INSERT INTO [dbo].[T_NA_PRODRATE_USER] 
+      (EMAIL_ID, ROLE, CATEGORIES, INTERFACES, UPDATED_BY, UPDATED_ON)
+      VALUES (@Email, @Role, @Categories, @Interfaces, @UpdatedBy, @UpdatedOn)`;
+
+    const values = {
+      Email: email,
+      Role: role,
+      Categories: JSON.stringify(category),
+      Interfaces: JSON.stringify(userInterface),
+      UpdatedBy: updated_by,
+      UpdatedOn: (updated_on).toString(),
     };
 
-    users.push(newUser);
-    await writeMockData(users);
-    return newUser; // Database code (keep safe for future use):
-    // const {
-    //   email,
-    //   role,
-    //   category,
-    //   interface: userInterface,
-    //   updated_by,
-    //   updated_on,
-    // } = userData;
-    //
-    // const query = `
-    //   INSERT INTO USER_MANAGEMENT (email, role, category, interface, updated_by, updated_on)
-    //   VALUES (?, ?, ?, ?, ?, ?)
-    // `;
-    //
-    // const values = [
-    //   email,
-    //   role,
-    //   JSON.stringify(category), // Store array as JSON string
-    //   JSON.stringify(userInterface), // Store array as JSON string
-    //   updated_by,
-    //   updated_on,
-    // ];
-    //
-    // await db.query(query, values);
-    // return await findByEmail(email);
+    const result = await executeQuery(insertQuery, values);
+    return result;
   } catch (error) {
-    console.error("Error creating user:", error);
+    console.error("Error creating user:", error.message);
     throw error;
   }
 };
 
-/**
- * Update user
- */
 const update = async (email, updateData) => {
   try {
-    // Using mock data for now
-    const users = await readMockData();
-    const userIndex = users.findIndex((u) => u.email === email);
+    const fields = [];
+    const values = { Email: email };
 
-    if (userIndex === -1) {
-      return null;
+    if (updateData.role !== undefined) {
+      fields.push("ROLE = @Role");
+      values.Role = updateData.role;
     }
 
-    // Update the user data
-    users[userIndex] = { ...users[userIndex], ...updateData };
-    await writeMockData(users);
-    return users[userIndex];
+    if (updateData.category !== undefined) {
+      fields.push("CATEGORIES = @Categories");
+      values.Categories = JSON.stringify(updateData.category);
+    }
 
-    // Database code (keep safe for future use):
-    // const fields = [];
-    // const values = [];
-    //
-    // // Build dynamic update query
-    // if (updateData.role !== undefined) {
-    //   fields.push("role = ?");
-    //   values.push(updateData.role);
-    // }
-    //
-    // if (updateData.category !== undefined) {
-    //   fields.push("category = ?");
-    //   values.push(JSON.stringify(updateData.category));
-    // }
-    //
-    // if (updateData.interface !== undefined) {
-    //   fields.push("interface = ?");
-    //   values.push(JSON.stringify(updateData.interface));
-    // }
-    //    // if (updateData.updated_by !== undefined) {
-    //   fields.push("updated_by = ?");
-    //   values.push(updateData.updated_by);
-    // }
-    //
-    // if (fields.length === 0) {
-    //   throw new Error("No fields to update");
-    // }
-    //
-    // values.push(email); // Add email for WHERE clause
-    //
-    // const query = `
-    //   UPDATE USER_MANAGEMENT
-    //   SET ${fields.join(", ")}
-    //   WHERE email = ?
-    // `;
-    //
-    // await db.query(query, values);
-    // return await findByEmail(email);
+    if (updateData.interface !== undefined) {
+      fields.push("INTERFACES = @Interfaces");
+      values.Interfaces = JSON.stringify(updateData.interface);
+    }
+
+    if (updateData.updated_by !== undefined) {
+      fields.push("UPDATED_BY = @UpdatedBy");
+      values.UpdatedBy = updateData.updated_by;
+    }
+
+    if (updateData.updated_on !== undefined) {
+      fields.push("UPDATED_ON = @UpdatedOn");
+      values.UpdatedOn = updateData.updated_on;
+    }
+
+    if (fields.length === 0) {
+      throw new Error("No fields to update");
+    }
+
+    const updateQuery = `UPDATE [dbo].[T_NA_PRODRATE_USER]
+      SET ${fields.join(", ")}
+      WHERE EMAIL_ID = @Email`;
+
+    const result = await executeQuery(updateQuery, values);
+    return result;
   } catch (error) {
-    console.error("Error updating user:", error);
+    console.error("Error updating user:", error.message);
     throw error;
   }
 };
 
-/**
- * Delete user
- */
 const deleteUser = async (email) => {
   try {
-    // Using mock data for now
-    const users = await readMockData();
-    const userIndex = users.findIndex((u) => u.email === email);
-
-    if (userIndex === -1) {
-      return false;
-    }
-
-    users.splice(userIndex, 1);
-    await writeMockData(users);
-    return true;
-
-    // Database code (keep safe for future use):
-    // const query = `DELETE FROM USER_MANAGEMENT WHERE email = ?`;
-    // const result = await db.query(query, [email]);
-    // return result.affectedRows > 0;
+    const deleteQuery = `DELETE FROM [dbo].[T_NA_PRODRATE_USER] WHERE EMAIL_ID = @Email`;
+    const result = await executeQuery(deleteQuery, { Email: email });
+    return result
   } catch (error) {
-    console.error("Error deleting user:", error);
+    console.error("Error deleting user:", error.message);
     throw error;
   }
 };

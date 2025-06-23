@@ -10,7 +10,7 @@ router.get("/", userController.getAllUsers);
 
 // GET /users/:email - Get user by email
 router.get(
-  "/:email",
+  "/user/:email",
   validateRequest(userValidation.getUserByEmail),
   userController.getUserByEmail
 );
@@ -24,14 +24,14 @@ router.post(
 
 // PUT /users/:email - Update user
 router.put(
-  "/:email",
+  "/user/:email",
   validateRequest(userValidation.updateUser),
   userController.updateUser
 );
 
 // DELETE /users/:email - Delete user
 router.delete(
-  "/:email",
+  "/user/:email",
   validateRequest(userValidation.deleteUser),
   userController.deleteUser
 );

@@ -1,77 +1,53 @@
+const { executeQuery } = require("../../../common/sqlConnectionManager");
 const excel = require("exceljs");
 const { Parser } = require("json2csv");
-const {
-  buildWhereClause,
-  processTroChangeFilter,
-} = require("../helpers/sqlHelpers");
-const {
-  getRecipies: getRecipiesData,
-  getFilters: getFiltersData,
-  getReviewedStatus: getReviewedStatusData,
-} = require("../responses");
+const { buildWhereClause } = require("../helpers/sqlHelpers")
 
 const appService = {
   getRecipies: async (req) => {
     const pageNumber = parseInt(req.body.pageNumber || 1);
     const rowsPerPage = parseInt(req.body.rowsPerPage || 10);
-
-    // Get data from responses.js
-    const recipesData = getRecipiesData();
-    let filteredRows = [...recipesData.rows];
-
-    // Apply reviewedStatus filter
-    if (req.body.reviewedStatus && req.body.reviewedStatus !== "All") {
-      filteredRows = filteredRows.filter(
-        (row) => row.REVIEWED === req.body.reviewedStatus
-      );
-    }
-
-    // Apply other filters
-    if (req.body.filters) {
-      Object.entries(req.body.filters).forEach(([filterName, filterValues]) => {
-        if (filterName === "tro_change") {
-          // Handle tro_change filter
-          if (filterValues && filterValues.length > 0) {
-            filteredRows = filteredRows.filter((row) => {
-              const absChange = Math.abs(row.RO_PCT_CHANGE || 0);
-              return filterValues.some((range) => {
-                if (range === "above 15%") {
-                  return absChange > 15;
-                } else {
-                  const matches = range.match(/(\d+)% to (\d+)%/);
-                  if (matches && matches.length === 3) {
-                    const min = parseInt(matches[1]);
-                    const max = parseInt(matches[2]);
-                    return absChange >= min && absChange <= max;
-                  }
-                }
-                return false;
-              });
-            });
-          }
-        } else {
-          // Handle other filters
-          if (filterValues && filterValues.length > 0) {
-            filteredRows = filteredRows.filter((row) =>
-              filterValues.includes(row[filterName])
-            );
-          }
-        }
-      });
-    }
-
-    // Apply pagination
-    const totalCount = filteredRows.length;
     const offset = (pageNumber - 1) * rowsPerPage;
-    const paginatedRows = filteredRows.slice(offset, offset + rowsPerPage);
 
-    return { rows: paginatedRows, rowsCount: totalCount };
+    const reviewedStatus = req.body.reviewedStatus === "All"
+      ? ""
+      : `AND REVIEWED='${req.body.reviewedStatus}'`;
+
+    const filterConditions = req.body.filters
+      ? buildWhereClause(req.body.filters)
+      : "";
+
+    const baseWhere = `WHERE RECIPE_NUMBER IS NOT NULL ${reviewedStatus} ${filterConditions}`;
+
+    const query = `
+        SELECT * 
+        FROM [dbo].[T_NA_PRODRATE_PLANNINGRATE_PERSONALCARE]
+        ${baseWhere}
+        ORDER BY SNAPSHOT_DATE DESC
+        OFFSET @offset ROWS
+        FETCH NEXT @rowsPerPage ROWS ONLY;
+    `;
+
+    const countQuery = `
+        SELECT COUNT(*) AS totalCount
+        FROM [dbo].[T_NA_PRODRATE_PLANNINGRATE_PERSONALCARE]
+        ${baseWhere};
+    `;
+
+    const params = {
+      offset,
+      rowsPerPage
+    };
+
+    const rows = await executeQuery(query, params);
+    const countResult = await executeQuery(countQuery, params);
+    const rowsCount = countResult && countResult[0] ? countResult[0].totalCount : 0;
+
+    return { rows, rowsCount };
   },
 
   getCategories: async () => {
     try {
-      // Currently only returning Personal Care as that's the only category
-      // In future, this could be fetched from database if multiple categories exist
       const response = ["Personal Care"];
       return response;
     } catch (error) {
@@ -79,115 +55,113 @@ const appService = {
       throw error;
     }
   },
+
   getFilters: async (req) => {
-    // Get data from responses.js
-    const filtersData = getFiltersData();
-    return filtersData;
+    let query = `SELECT Distinct INTERFACE,RECIPE_TYPE,
+      MAKER_RESOURCE,PACKER_RESOURCE,PRODUCT_CODE,
+      PROD_DESC,PRODUCT_VARIANT,PRODUCT_SIZE,SETUP_GROUP
+      FROM [dbo].[T_NA_PRODRATE_PLANNINGRATE_PERSONALCARE];`;
+
+    let response = await executeQuery(query);
+    return response;
   },
+
   getReviewedStatus: async (req) => {
-    // Get data from responses.js
-    const reviewedStatusData = getReviewedStatusData();
-    return reviewedStatusData;
+
+    let query = `SELECT Distinct REVIEWED
+    FROM [dbo].[T_NA_PRODRATE_PLANNINGRATE_PERSONALCARE];`;
+
+    let response = await executeQuery(query);
+    return response;
   },
+
   searchRecipies: async (req) => {
     if (!req.body.searchText || req.body.searchText.trim() === "") {
       return { rows: [], rowsCount: 0 };
     }
 
-    const searchText = req.body.searchText.trim().toLowerCase();
+    const searchText = req.body.searchText.trim();
     const pageNumber = parseInt(req.body.pageNumber || 1);
     const rowsPerPage = parseInt(req.body.rowsPerPage || 10);
-
-    // Get data from responses.js
-    const recipesData = getRecipiesData();
-    let filteredRows = [...recipesData.rows];
-
-    // Apply reviewedStatus filter
-    if (req.body.reviewedStatus && req.body.reviewedStatus !== "All") {
-      filteredRows = filteredRows.filter(
-        (row) => row.REVIEWED === req.body.reviewedStatus
-      );
-    }
-
-    // Apply other filters
-    if (req.body.filters) {
-      Object.entries(req.body.filters).forEach(([filterName, filterValues]) => {
-        if (filterName === "tro_change") {
-          // Handle tro_change filter
-          if (filterValues && filterValues.length > 0) {
-            filteredRows = filteredRows.filter((row) => {
-              const absChange = Math.abs(row.RO_PCT_CHANGE || 0);
-              return filterValues.some((range) => {
-                if (range === "above 15%") {
-                  return absChange > 15;
-                } else {
-                  const matches = range.match(/(\d+)% to (\d+)%/);
-                  if (matches && matches.length === 3) {
-                    const min = parseInt(matches[1]);
-                    const max = parseInt(matches[2]);
-                    return absChange >= min && absChange <= max;
-                  }
-                }
-                return false;
-              });
-            });
-          }
-        } else {
-          // Handle other filters
-          if (filterValues && filterValues.length > 0) {
-            filteredRows = filteredRows.filter((row) =>
-              filterValues.includes(row[filterName])
-            );
-          }
-        }
-      });
-    }
-
-    // Apply search filter - search across all relevant string columns
-    filteredRows = filteredRows.filter((row) => {
-      const searchableFields = [
-        "RATE_OF_OPERATION_KEY",
-        "RECIPE_NUMBER",
-        "MAKER_RESOURCE",
-        "PACKER_RESOURCE",
-        "BUSINESS_UNIT",
-        "INTERFACE",
-        "RECIPE_TYPE",
-        "SAP_PRODUCT",
-        "PROD_DESC",
-        "PRODUCT_CODE",
-        "TRADE_CODE",
-        "PRODUCT_VARIANT",
-        "PRODUCT_SIZE",
-        "BASE_QTY_UOM",
-        "PLANNING_UOM",
-        "SETUP_GROUP",
-        "RECOMMENDED_RO_SOURCE",
-        "RULEBASED_RO_SOURCE",
-        "REVIEWED",
-        "ERROR_REPORT",
-        "COMMENT",
-        "CONSTRAINING_RESOURCE",
-        "CONSTRAINING_RESOURCE_2",
-        "CONSTRAINING_RESOURCE_3",
-        "UPDATED_BY",
-      ];
-
-      return searchableFields.some((field) => {
-        const value = row[field];
-        return value && value.toString().toLowerCase().includes(searchText);
-      });
-    });
-
-    // Apply pagination
-    const totalCount = filteredRows.length;
     const offset = (pageNumber - 1) * rowsPerPage;
-    const paginatedRows = filteredRows.slice(offset, offset + rowsPerPage);
 
-    return { rows: paginatedRows, rowsCount: totalCount };
+    const reviewedStatus = req.body.reviewedStatus === "All"
+      ? ""
+      : `AND REVIEWED='${req.body.reviewedStatus}'`;
+
+    const filterConditions = req.body.filters
+      ? buildWhereClause(req.body.filters)
+      : "";
+
+    const searchCondition = `
+      RATE_OF_OPERATION_KEY LIKE @searchPattern OR
+      RECIPE_NUMBER LIKE @searchPattern OR
+      MAKER_RESOURCE LIKE @searchPattern OR
+      PACKER_RESOURCE LIKE @searchPattern OR
+      BUSINESS_UNIT LIKE @searchPattern OR
+      INTERFACE LIKE @searchPattern OR
+      RECIPE_TYPE LIKE @searchPattern OR
+      SAP_PRODUCT LIKE @searchPattern OR
+      PROD_DESC LIKE @searchPattern OR
+      PRODUCT_CODE LIKE @searchPattern OR
+      TRADE_CODE LIKE @searchPattern OR
+      PRODUCT_VARIANT LIKE @searchPattern OR
+      PRODUCT_SIZE LIKE @searchPattern OR
+      BASE_QTY_UOM LIKE @searchPattern OR
+      PLANNING_UOM LIKE @searchPattern OR
+      SETUP_GROUP LIKE @searchPattern OR
+      RECOMMENDED_RO_SOURCE LIKE @searchPattern OR
+      RULEBASED_RO_SOURCE LIKE @searchPattern OR
+      REVIEWED LIKE @searchPattern OR
+      ERROR_REPORT LIKE @searchPattern OR
+      COMMENT LIKE @searchPattern OR
+      CONSTRAINING_RESOURCE LIKE @searchPattern OR
+      CONSTRAINING_RESOURCE_2 LIKE @searchPattern OR
+      CONSTRAINING_RESOURCE_3 LIKE @searchPattern OR
+      UPDATED_BY LIKE @searchPattern
+    `;
+
+    const baseWhere = `
+      WHERE RECIPE_NUMBER IS NOT NULL
+      ${reviewedStatus}
+      ${filterConditions}
+      AND (${searchCondition})
+    `;
+
+    const query = `
+      SELECT *
+      FROM [dbo].[T_NA_PRODRATE_PLANNINGRATE_PERSONALCARE]
+      ${baseWhere}
+      ORDER BY SNAPSHOT_DATE DESC
+      OFFSET @offset ROWS
+      FETCH NEXT @rowsPerPage ROWS ONLY;
+    `;
+
+    const countQuery = `
+      SELECT COUNT(*) AS totalCount
+      FROM [dbo].[T_NA_PRODRATE_PLANNINGRATE_PERSONALCARE]
+      ${baseWhere};
+    `;
+
+    const params = {
+      offset,
+      rowsPerPage,
+      searchPattern: `%${searchText}%`
+    };
+
+    try {
+      const rows = await executeQuery(query, params);
+      const countResult = await executeQuery(countQuery, params);
+      const rowsCount = countResult && countResult[0] ? countResult[0].totalCount : 0;
+
+      return { rows, rowsCount };
+    } catch (error) {
+      console.error("Error executing search query:", error);
+      throw error;
+    }
   },
   updateRecipies: async (req) => {
-    // Validate request body
+
     if (!req.body || !Array.isArray(req.body) || req.body.length === 0) {
       throw new Error("Invalid request body. Expected an array of recipe updates.");
     }
@@ -206,29 +180,74 @@ const appService = {
       }
 
       try {
-        // Since we're not using a real database, simulate the update
-        // In a real scenario, this would update the database and return success/failure
-        const mockSuccess = true; // Simulate successful update
+        const setClause = [];
+        const params = {
+          key: recipe.RATE_OF_OPERATION_KEY,
+        };
 
-        if (mockSuccess) {
+        if (recipe.NEW_RO !== undefined) {
+          setClause.push("NEW_RO = @newRo");
+          params.newRo = recipe.NEW_RO;
+        }
+
+        if (recipe.RO_PCT_CHANGE !== undefined) {
+          setClause.push("RO_PCT_CHANGE = @roPctChange");
+          params.roPctChange = recipe.RO_PCT_CHANGE;
+        }
+
+        if (recipe.NEW_PLANNING_TIME !== undefined) {
+          setClause.push("NEW_PLANNING_TIME = @newPlanningTime");
+          params.newPlanningTime = recipe.NEW_PLANNING_TIME;
+        }
+
+        if (recipe.REVIEWED !== undefined) {
+          setClause.push("REVIEWED = @reviewed");
+          params.reviewed = recipe.REVIEWED;
+        }
+
+        if (recipe.UPDATED_BY !== undefined) {
+          setClause.push("UPDATED_BY = @updatedBy");
+          params.updatedBy = recipe.UPDATED_BY;
+        }
+
+
+        setClause.push("UPDATED_ON = @updatedOn");
+        params.updatedOn = recipe.UPDATED_ON || currentDate;
+
+        if (setClause.length === 0) {
+          updateResults.push({
+            success: false,
+            error: "No fields to update",
+            key: recipe.RATE_OF_OPERATION_KEY,
+          });
+          continue;
+        }
+
+        const query = `
+          UPDATE [dbo].[T_NA_PRODRATE_PLANNINGRATE_PERSONALCARE]
+          SET ${setClause.join(", ")}
+          WHERE RATE_OF_OPERATION_KEY = @key AND REVIEWED = 'N';  
+          
+          SELECT @@ROWCOUNT AS updatedRows;
+        `;
+        const result = await executeQuery(query, params);
+        const updatedRows = result && result[0] ? result[0].updatedRows : 0;
+
+        if (updatedRows > 0) {
           updateResults.push({
             success: true,
             key: recipe.RATE_OF_OPERATION_KEY,
-            rowsAffected: 1,
+            rowsAffected: updatedRows,
           });
         } else {
           updateResults.push({
             success: false,
             key: recipe.RATE_OF_OPERATION_KEY,
-            error:
-              "Update skipped! Possibly updated by another user while you were working on it.",
+            error: "Update skipped!Recipe already reviewed or updated by another user while you were working on it.",
           });
         }
       } catch (error) {
-        console.error(
-          `Error updating recipe ${recipe.RATE_OF_OPERATION_KEY}:`,
-          error
-        );
+        console.error(`Error updating recipe ${recipe.RATE_OF_OPERATION_KEY}:`, error);
         updateResults.push({
           success: false,
           error: error.message,
@@ -238,12 +257,8 @@ const appService = {
     }
 
     const totalUpdated = updateResults.filter((r) => r.success).length;
-    const totalSkipped = updateResults.filter(
-      (r) => !r.success && r.error.includes("REVIEWED")
-    ).length;
-    const totalFailed = updateResults.filter(
-      (r) => !r.success && !r.error.includes("REVIEWED")
-    ).length;
+    const totalSkipped = updateResults.filter((r) => !r.success && r.error.includes("REVIEWED")).length;
+    const totalFailed = updateResults.filter((r) => !r.success && !r.error.includes("REVIEWED")).length;
 
     return {
       success: totalFailed === 0,
@@ -251,73 +266,47 @@ const appService = {
       totalUpdated,
       totalSkipped,
       totalFailed,
-      message:
-        totalUpdated > 0
-          ? `${totalUpdated} recipe(s) updated successfully.`
-          : " " + totalSkipped > 0
-          ? `${totalSkipped} skipped due to REVIEWED not being 'N'. `
-          : " " + totalFailed > 0
-          ? `${totalFailed} failed due to errors.`
-          : " ",
+      message: totalUpdated > 0 ? `${totalUpdated} recipe(s) updated successfully.` : " " +
+        totalSkipped > 0 ? `${totalSkipped} skipped due to REVIEWED not being 'N'. ` : " " +
+          totalFailed > 0 ? `${totalFailed} failed due to errors.` : " ",
     };
   },
+
   downloadRecipies: async (req) => {
     try {
-      // Get data from responses.js
-      const recipesData = getRecipiesData();
-      let filteredRows = [...recipesData.rows];
+      const reviewedStatus = req.body.reviewedStatus === "All"
+        ? ""
+        : `AND REVIEWED='${req.body.reviewedStatus}'`;
 
-      // Apply reviewedStatus filter
-      if (req.body.reviewedStatus && req.body.reviewedStatus !== "All") {
-        filteredRows = filteredRows.filter(
-          (row) => row.REVIEWED === req.body.reviewedStatus
-        );
-      }
+      const filterConditions = req.body.filters
+        ? buildWhereClause(req.body.filters)
+        : "";
 
-      // Apply other filters
-      if (req.body.filters) {
-        Object.entries(req.body.filters).forEach(([filterName, filterValues]) => {
-          if (filterName === "tro_change") {
-            // Handle tro_change filter
-            if (filterValues && filterValues.length > 0) {
-              filteredRows = filteredRows.filter((row) => {
-                const absChange = Math.abs(row.RO_PCT_CHANGE || 0);
-                return filterValues.some((range) => {
-                  if (range === "above 15%") {
-                    return absChange > 15;
-                  } else {
-                    const matches = range.match(/(\d+)% to (\d+)%/);
-                    if (matches && matches.length === 3) {
-                      const min = parseInt(matches[1]);
-                      const max = parseInt(matches[2]);
-                      return absChange >= min && absChange <= max;
-                    }
-                  }
-                  return false;
-                });
-              });
-            }
-          } else {
-            // Handle other filters
-            if (filterValues && filterValues.length > 0) {
-              filteredRows = filteredRows.filter((row) =>
-                filterValues.includes(row[filterName])
-              );
-            }
-          }
-        });
-      }
+      const baseWhere = `
+        WHERE RECIPE_NUMBER IS NOT NULL
+        ${reviewedStatus}
+        ${filterConditions}
+      `;
 
-      if (!filteredRows || filteredRows.length === 0) {
+      const query = `
+        SELECT * 
+        FROM [dbo].[T_NA_PRODRATE_PLANNINGRATE_PERSONALCARE]
+        ${baseWhere}
+        ORDER BY SNAPSHOT_DATE DESC;
+      `;
+
+      const rows = await executeQuery(query);
+
+      if (!rows || rows.length === 0) {
         throw new Error("No data available for download");
       }
 
       const fileType = req.body.fileType || "xlsx";
 
       if (fileType === "xlsx") {
-        return await generateExcel(filteredRows);
+        return await generateExcel(rows);
       } else if (fileType === "csv") {
-        return generateCSV(filteredRows);
+        return generateCSV(rows);
       } else {
         throw new Error("Unsupported file type. Please choose 'xlsx' or 'csv'");
       }
@@ -328,12 +317,11 @@ const appService = {
   },
 };
 
-// Helper function to generate Excel file
+
 async function generateExcel(data) {
   const workbook = new excel.Workbook();
   const worksheet = workbook.addWorksheet("Rate of Operations");
 
-  // Add headers
   if (data.length > 0) {
     const headers = Object.keys(data[0]);
     worksheet.columns = headers.map((header) => ({
@@ -343,24 +331,23 @@ async function generateExcel(data) {
     }));
   }
 
-  // Add rows
   data.forEach((row) => {
     worksheet.addRow(row);
   });
-  // Format headers
+
   worksheet.getRow(1).font = { bold: true };
   worksheet.getRow(1).fill = {
     type: "pattern",
     pattern: "solid",
-    fgColor: { argb: "FFFFFF00" }, // Yellow background
+    fgColor: { argb: "FFFFFF00" },
   };
 
-  // Write to buffer
+
   const buffer = await workbook.xlsx.writeBuffer();
   return buffer;
 }
 
-// Helper function to generate CSV file
+
 function generateCSV(data) {
   try {
     const fields = data.length > 0 ? Object.keys(data[0]) : [];

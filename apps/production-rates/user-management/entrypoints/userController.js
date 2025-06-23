@@ -1,8 +1,5 @@
 const userService = require("../domain/userService");
 
-/**
- * Get all users
- */
 const getAllUsers = async (req, res, next) => {
   try {
     const users = await userService.getAllUsers();
@@ -16,9 +13,6 @@ const getAllUsers = async (req, res, next) => {
   }
 };
 
-/**
- * Get user by email
- */
 const getUserByEmail = async (req, res, next) => {
   try {
     const { email } = req.params;
@@ -41,9 +35,6 @@ const getUserByEmail = async (req, res, next) => {
   }
 };
 
-/**
- * Create new user
- */
 const createUser = async (req, res, next) => {
   try {
     const userData = req.body;
@@ -65,22 +56,12 @@ const createUser = async (req, res, next) => {
   }
 };
 
-/**
- * Update user
- */
 const updateUser = async (req, res, next) => {
   try {
     const { email } = req.params;
     const updateData = req.body;
 
     const updatedUser = await userService.updateUser(email, updateData);
-
-    if (!updatedUser) {
-      return res.status(404).json({
-        success: false,
-        message: "User not found",
-      });
-    }
 
     res.status(200).json({
       success: true,
@@ -92,20 +73,11 @@ const updateUser = async (req, res, next) => {
   }
 };
 
-/**
- * Delete user
- */
 const deleteUser = async (req, res, next) => {
   try {
     const { email } = req.params;
-    const deleted = await userService.deleteUser(email);
-
-    if (!deleted) {
-      return res.status(404).json({
-        success: false,
-        message: "User not found",
-      });
-    }
+    const decodedEmail = decodeURIComponent(email)
+    await userService.deleteUser(decodedEmail);
 
     res.status(200).json({
       success: true,
