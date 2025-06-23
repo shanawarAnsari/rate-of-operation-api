@@ -9,7 +9,6 @@ const {
   downloadWrenchtimeSchema,
 } = require("../../validation/requestSchemas.js");
 
-// Routes with validation
 router.post(
   "/getWrenchtime",
   validateRequest(getWrenchtimeSchema),

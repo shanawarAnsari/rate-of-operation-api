@@ -5,15 +5,9 @@ const { buildWhereClause } = require("../helpers/sqlHelpers");
 
 const TABLE_NAME = "[dbo].[T_NA_PRODRATE_SETUPTIME]";
 
-/**
- * Service to handle operations related to wrench time data.
- */
+
 const appService = {
-  /**
-   * Retrieves wrench time records with pagination and filtering.
-   * @param {Object} req - The request object containing query parameters.
-   * @returns {Object} - An object containing the rows and total count.
-   */
+
   getWrenchtime: async (req) => {
     const pageNumber = parseInt(req.body.pageNumber || 1);
     const rowsPerPage = parseInt(req.body.rowsPerPage || 10);
@@ -57,11 +51,6 @@ const appService = {
     return { rows, rowsCount };
   },
 
-  /**
-   * Searches for wrench time records based on the provided search text and filters.
-   * @param {Object} req - The request object containing search parameters.
-   * @returns {Object} - An object containing the matching rows and total count.
-   */
   searchWrenchtime: async (req) => {
     const {
       searchText,
@@ -75,7 +64,7 @@ const appService = {
       reviewedStatus === "All" ? "" : `AND REVIEWED='${reviewedStatus}'`;
     const filterConditions = filters ? buildWhereClause(filters) : "";
 
-    // Search across relevant columns
+
     const searchClause = searchText
       ? `AND (
         SETUP_TIME_KEY LIKE '%${searchText}%'
@@ -119,13 +108,8 @@ const appService = {
     return { rows, rowsCount };
   },
 
-  /**
-   * Updates wrench time records in batch.
-   * @param {Object} req - The request object containing update data.
-   * @returns {Object} - An object containing the update results and counts.
-   */
   updateWrenchtime: async (req) => {
-    // Batch update logic for wrenchtime records
+
     const updates = req.body;
     const results = [];
     let totalUpdated = 0;
@@ -187,11 +171,6 @@ const appService = {
     };
   },
 
-  /**
-   * Downloads wrench time records as a file (CSV or Excel).
-   * @param {Object} req - The request object containing download parameters.
-   * @returns {Buffer|String} - The file buffer or string data.
-   */
   downloadWrenchtime: async (req) => {
     const { reviewedStatus, filters, fileType = "xlsx" } = req.body;
     const reviewedClause =
@@ -224,52 +203,44 @@ const appService = {
     }
   },
 
-  /**
-   * Retrieves unique values for filterable columns.
-   * @returns {Object} - An object containing arrays of unique values for each filterable column.
-   */
-  getFilters: async () => {
-    // Return unique values for each filterable column
-    const filterColumns = [
-      "INTERFACE",
-      "SETUP_MATRIX",
-      "LOCATION",
-      "FROM_SETUP_GROUP",
-      "TO_SETUP_GROUP",
-      "FROM_MACHINE",
-      "TO_MACHINE",
-      "FROM_PRODUCT_SIZE",
-      "TO_PRODUCT_SIZE",
-      "FROM_PRODUCT_VARIANT",
-      "TO_PRODUCT_VARIANT",
-      "BUSINESS_UNIT",
-    ];
-    const filters = {};
-    for (const col of filterColumns) {
-      const query = `SELECT DISTINCT ${col} FROM ${TABLE_NAME} WHERE ${col} IS NOT NULL`;
-      const result = await executeQuery(query);
-      filters[col] = result.map((row) => row[col]);
-    }
-    return filters;
+  getFilters: async (req) => {
+    const query = `
+      SELECT DISTINCT 
+        INTERFACE,
+        SETUP_MATRIX,
+        LOCATION,
+        FROM_SETUP_GROUP,
+        TO_SETUP_GROUP,
+        FROM_MACHINE,
+        TO_MACHINE,
+        FROM_PRODUCT_SIZE,
+        TO_PRODUCT_SIZE,
+        FROM_PRODUCT_VARIANT,
+        TO_PRODUCT_VARIANT       
+      FROM ${TABLE_NAME} 
+      WHERE INTERFACE IS NOT NULL
+      AND SETUP_MATRIX IS NOT NULL
+      AND LOCATION IS NOT NULL
+      AND FROM_SETUP_GROUP IS NOT NULL
+      AND TO_SETUP_GROUP IS NOT NULL
+      AND FROM_MACHINE IS NOT NULL
+      AND TO_MACHINE IS NOT NULL
+      AND FROM_PRODUCT_SIZE IS NOT NULL
+      AND TO_PRODUCT_SIZE IS NOT NULL
+      AND FROM_PRODUCT_VARIANT IS NOT NULL
+      AND TO_PRODUCT_VARIANT IS NOT NULL
+      `;
+
+    const response = await executeQuery(query);
+    return response;
   },
 
-  /**
-   * Retrieves unique categories for wrench time records.
-   * @returns {Array} - An array of unique category values.
-   */
   getCategories: async () => {
-    // Example: return all unique SETUP_MATRIX values as categories
-    const query = `SELECT DISTINCT SETUP_MATRIX FROM ${TABLE_NAME} WHERE SETUP_MATRIX IS NOT NULL`;
-    const result = await executeQuery(query);
-    return result.map((row) => row.SETUP_MATRIX);
+    return ["Personal Care"];
   },
 
-  /**
-   * Retrieves unique reviewed status values.
-   * @returns {Array} - An array of unique reviewed status values.
-   */
   getReviewedStatus: async () => {
-    // Return all unique REVIEWED values
+
     const query = `SELECT DISTINCT REVIEWED FROM ${TABLE_NAME} WHERE REVIEWED IS NOT NULL`;
     const result = await executeQuery(query);
     return result.map((row) => row.REVIEWED);
